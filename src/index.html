@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="uk">
+	<head>
+		<meta charset="utf-8" />
+
+		<base href="/" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			try {
+				const storedMode = localStorage.getItem('app-mode');
+				const preferredMode =
+					storedMode === 'dark' || storedMode === 'light'
+						? storedMode
+						: window.matchMedia('(prefers-color-scheme: dark)').matches
+							? 'dark'
+							: 'light';
+				document.documentElement.setAttribute('data-mode', preferredMode);
+			} catch {}
+		</script>
+
+		<meta name="theme-color" content="#f8f3e9" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#110c08" media="(prefers-color-scheme: dark)" />
+
+		<link rel="icon" type="image/png" href="/favicon.png" />
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;0,700;1,400&family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+			rel="stylesheet"
+		/>
+
+		<title>Темнорід: Лорди — браузерна фентезі-стратегія</title>
+		<meta
+			name="description"
+			content="Браузерна стратегія у світі темного фентезі Темнорід. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ. Гра в розробці."
+		/>
+		<meta name="author" content="Temnorid" />
+		<meta name="robots" content="index, follow, max-image-preview:large" />
+		<meta itemprop="name" content="Темнорід: Лорди — браузерна фентезі-стратегія" />
+		<meta
+			itemprop="description"
+			content="Браузерна стратегія у світі темного фентезі Темнорід. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ. Гра в розробці."
+		/>
+		<meta itemprop="image" content="https://lords.temnorid.com/seo/home.jpg" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Temnorid: Lords" />
+		<meta property="og:locale" content="uk_UA" />
+		<meta property="og:url" content="https://lords.temnorid.com/" />
+		<meta property="og:title" content="Темнорід: Лорди — браузерна фентезі-стратегія" />
+		<meta
+			property="og:description"
+			content="Браузерна стратегія у світі темного фентезі Темнорід. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ. Гра в розробці."
+		/>
+		<meta property="og:image" content="https://lords.temnorid.com/seo/home.jpg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:type" content="image/jpeg" />
+		<meta property="og:image:alt" content="Темнорід: Лорди — браузерна фентезі-стратегія" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Темнорід: Лорди — браузерна фентезі-стратегія" />
+		<meta
+			name="twitter:description"
+			content="Браузерна стратегія у світі темного фентезі Темнорід. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ. Гра в розробці."
+		/>
+		<meta name="twitter:image" content="https://lords.temnorid.com/seo/home.jpg" />
+		<meta name="twitter:image:src" content="https://lords.temnorid.com/seo/home.jpg" />
+		<meta name="twitter:image:alt" content="Темнорід: Лорди — браузерна фентезі-стратегія" />
+		<link rel="canonical" href="https://lords.temnorid.com/" />
+		<script type="application/ld+json" id="project-schema">
+			{
+				"@context": "https://schema.org",
+				"@graph": [
+					{
+						"@type": "Organization",
+						"@id": "https://temnorid.com/#organization",
+						"name": "Temnorid",
+						"url": "https://temnorid.com/"
+					},
+					{
+						"@type": "WebSite",
+						"@id": "https://temnorid.com/#website",
+						"name": "Temnorid",
+						"url": "https://temnorid.com/",
+						"publisher": { "@id": "https://temnorid.com/#organization" }
+					},
+					{
+						"@type": "WebSite",
+						"@id": "https://lords.temnorid.com/#website",
+						"name": "Temnorid: Lords",
+						"alternateName": "Темнорід: Лорди",
+						"url": "https://lords.temnorid.com/",
+						"inLanguage": "uk",
+						"publisher": { "@id": "https://temnorid.com/#organization" },
+						"isPartOf": { "@id": "https://temnorid.com/#website" },
+						"about": { "@id": "https://lords.temnorid.com/#game" }
+					},
+					{
+						"@type": "VideoGame",
+						"@id": "https://lords.temnorid.com/#game",
+						"name": "Temnorid: Lords",
+						"alternateName": "Темнорід: Лорди",
+						"url": "https://lords.temnorid.com/",
+						"description": "Темнорід: Лорди — браузерна стратегія в розробці у світі темного середньовічного фентезі XIV століття. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ.",
+						"image": "https://lords.temnorid.com/seo/home.jpg",
+						"genre": ["Strategy", "Dark medieval fantasy"],
+						"gamePlatform": "Web browser",
+						"operatingSystem": "Any operating system with a modern web browser",
+						"applicationCategory": "GameApplication",
+						"inLanguage": ["uk", "en"],
+						"creativeWorkStatus": "In development",
+						"publisher": { "@id": "https://temnorid.com/#organization" },
+						"isPartOf": { "@id": "https://temnorid.com/#website" }
+					},
+					{
+						"@type": "WebPage",
+						"@id": "https://lords.temnorid.com/#webpage",
+						"url": "https://lords.temnorid.com/",
+						"name": "Темнорід: Лорди — браузерна фентезі-стратегія",
+						"inLanguage": "uk",
+						"isPartOf": { "@id": "https://lords.temnorid.com/#website" },
+						"about": { "@id": "https://lords.temnorid.com/#game" },
+						"primaryImageOfPage": {
+							"@type": "ImageObject",
+							"url": "https://lords.temnorid.com/seo/home.jpg",
+							"width": 1200,
+							"height": 630
+						}
+					}
+				]
+			}
+		</script>
+	</head>
+	<body>
+		<app-root></app-root>
+	</body>
+</html>

@@ -1,0 +1,32 @@
+{
+	"mode": "Built-in image_gen",
+	"transparent_background": false,
+	"productionFormat": {
+		"width": 1200,
+		"height": 630,
+		"format": "JPEG",
+		"quality": 88
+	},
+	"assets": [
+		{
+			"path": "src/assets/seo/home.jpg",
+			"prompt": "Use case: stylized-concept. Create a premium dark medieval fantasy social sharing cover for the browser strategy game Temnorid: Lords. Wide landscape image, intended final crop 1200x630. Painterly realistic illustration, parchment and ember brand palette: warm stone, deep charcoal, burnished amber, restrained crimson. Scene: a small fortified human settlement and warm hearths nestled below a protective mountain ridge in a mysterious dark fantasy landscape, a distant lord overlooking the domain, no battle or invented creatures. Cinematic dusk, credible medieval architecture, clear strong silhouette at thumbnail size. Exact text only: 'TEMNORID' in small elegant serif capitals and 'LORDS' in large readable ivory serif capitals, integrated with spacious composition. Keep text away from all edges, center 80% safe area. No logos from other brands, no watermark, no UI screenshot. This is the HOME / project cover, establishing the world and domain. Opaque background."
+		},
+		{
+			"path": "src/assets/seo/onboarding.jpg",
+			"prompt": "Use case: stylized-concept. Premium dark medieval fantasy social sharing cover for Temnorid: Lords, a browser strategy game in development. Wide landscape composition intended final crop 1200x630. Painterly realistic illustration with medieval 14th-century details, warm stone, charcoal, parchment ivory, burnished amber and restrained ember crimson, cinematic dusk. Scene: A travel-worn medieval lord stands at a fork in a mountain path choosing between a warm stone sanctuary and a distant glowing hearth, a folded map in hand. Theme: choosing Stone or Fire and a first homeland. Clearly distinct composition and scene from the other covers. Exact text only: 'TEMNORID: LORDS' in small elegant ivory serif capitals and 'FIRST DOMAIN' as a large readable ivory serif heading. Spacious center 80% text safe zone, readable thumbnail composition. No watermarks, no modern elements, no invented game mechanics or UI screenshots. Opaque background."
+		},
+		{
+			"path": "src/assets/seo/village.jpg",
+			"prompt": "Use case: stylized-concept. Premium dark medieval fantasy social sharing cover for Temnorid: Lords, a browser strategy game in development. Wide landscape composition intended final crop 1200x630. Painterly realistic illustration with medieval 14th-century details, warm stone, charcoal, parchment ivory, burnished amber and restrained ember crimson, cinematic dusk. Scene: An intimate aerial oblique view of a small fortified medieval village: simple timber and stone homes, empty plots ready for future buildings, warm central hearth, protective mountain shelter. Theme: the lord's settlement. Clearly distinct composition and scene from the other covers. Exact text only: 'TEMNORID: LORDS' in small elegant ivory serif capitals and 'VILLAGE' as a large readable ivory serif heading. Spacious center 80% text safe zone, readable thumbnail composition. No watermarks, no modern elements, no invented game mechanics or UI screenshots. Opaque background."
+		},
+		{
+			"path": "src/assets/seo/farm.jpg",
+			"prompt": "Use case: stylized-concept. Premium dark medieval fantasy social sharing cover for Temnorid: Lords, a browser strategy game in development. Wide landscape composition intended final crop 1200x630. Painterly realistic illustration with medieval 14th-century details, warm stone, charcoal, parchment ivory, burnished amber and restrained ember crimson, cinematic dusk. Scene: Patchwork medieval lands outside a village: golden grain fields, a dark woodland, exposed stone quarry, clay bank and a freshwater stream. Handworked rural landscape. Theme: surveying resources, no modern machinery. Clearly distinct composition and scene from the other covers. Exact text only: 'TEMNORID: LORDS' in small elegant ivory serif capitals and 'LANDS' as a large readable ivory serif heading. Spacious center 80% text safe zone, readable thumbnail composition. No watermarks, no modern elements, no invented game mechanics or UI screenshots. Opaque background."
+		},
+		{
+			"path": "src/assets/seo/world.jpg",
+			"prompt": "Use case: stylized-concept. Premium dark medieval fantasy social sharing cover for Temnorid: Lords, a browser strategy game in development. Wide landscape composition intended final crop 1200x630. Painterly realistic illustration with medieval 14th-century details, warm stone, charcoal, parchment ivory, burnished amber and restrained ember crimson, cinematic dusk. Scene: A sweeping dark medieval fantasy world panorama seen from high above: mountain chains, forests, lakes, winding roads and widely scattered tiny settlements, mysterious uncharted mist at the horizon. Theme: exploring the shared world. Clearly distinct composition and scene from the other covers. Exact text only: 'TEMNORID: LORDS' in small elegant ivory serif capitals and 'WORLD' as a large readable ivory serif heading. Spacious center 80% text safe zone, readable thumbnail composition. No watermarks, no modern elements, no invented game mechanics or UI screenshots. Opaque background."
+		}
+	]
+}

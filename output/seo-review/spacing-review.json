@@ -1,0 +1,401 @@
+{
+  "status": "completed",
+  "summary": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 15,
+    "total": 15
+  },
+  "capturedWidths": [
+    390,
+    1440,
+    1728
+  ],
+  "findings": [
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "viewport-390 uses 1 off-scale spacing value across 1 element: 59.5px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@18"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@18 padding top",
+          "value": 59.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding bottom",
+          "value": 59.5,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-1"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "Перейти на головну сторінку measures 141.66x29.75px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@6"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 141.66,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 29.75,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-2"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "Перемкнути мову на English measures 55.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(1)@10"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 55.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-3"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "Відкрити меню мов measures 38.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(2)@12"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 38.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-4"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "Світ Темнородуarrow_outward measures 122.38x24px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@38"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 122.38,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 24,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-5"
+    },
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "viewport-1440 uses 3 off-scale spacing values across 1 element: 25.5px, 115.2px, 160px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@18"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@18 padding top",
+          "value": 115.2,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding right",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding bottom",
+          "value": 115.2,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding left",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 margin right",
+          "value": 160,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 margin left",
+          "value": 160,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-6"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "Перейти на головну сторінку measures 169.98x33.98px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@6"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 169.98,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 33.98,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-7"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "Перемкнути мову на English measures 55.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(1)@10"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 55.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-8"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "Відкрити меню мов measures 38.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(2)@12"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 38.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-9"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "Світ Темнородуarrow_outward measures 122.38x24px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@38"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 122.38,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 24,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-10"
+    },
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "viewport-1728 uses 3 off-scale spacing values across 1 element: 25.5px, 119px, 304px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@18"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@18 padding top",
+          "value": 119,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding right",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding bottom",
+          "value": 119,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 padding left",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 margin right",
+          "value": 304,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@18 margin left",
+          "value": 304,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-11"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "Перейти на головну сторінку measures 169.98x33.98px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@6"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 169.98,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 33.98,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-12"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "Перемкнути мову на English measures 55.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(1)@10"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 55.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-13"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "Відкрити меню мов measures 38.25x38.25px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "button:nth-of-type(2)@12"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 38.25,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 38.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-14"
+    },
+    {
+      "ruleId": "spacing/touch-target",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "Світ Темнородуarrow_outward measures 122.38x24px, below the recommended 44x44px touch target.",
+      "fix": "Increase the interactive hit area to at least 44x44px without relying on the visible icon size.",
+      "elementIds": [
+        "a:nth-of-type(1)@38"
+      ],
+      "evidence": [
+        {
+          "label": "Width",
+          "value": 122.38,
+          "unit": "px"
+        },
+        {
+          "label": "Height",
+          "value": 24,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-15"
+    }
+  ]
+}

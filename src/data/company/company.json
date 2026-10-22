@@ -1,0 +1,59 @@
+{
+	"_id": "",
+	"name": "Temnorid: Lords",
+	"title": "Темнорід: Лорди — браузерна фентезі-стратегія",
+	"description": "Темнорід: Лорди — браузерна стратегія в розробці у світі темного середньовічного фентезі XIV століття. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ.",
+	"image": "https://lords.temnorid.com/seo/home.jpg",
+	"logo": "/logo.png",
+	"siteUrl": "https://lords.temnorid.com",
+	"lang": "uk",
+	"locale": "uk_UA",
+	"defaultSeo": {
+		"title": "Темнорід: Лорди — браузерна фентезі-стратегія",
+		"description": "Браузерна стратегія у світі темного фентезі Темнорід. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ. Гра в розробці.",
+		"image": "/seo/home.jpg",
+		"robots": "index, follow, max-image-preview:large",
+		"type": "website",
+		"twitterCard": "summary_large_image",
+		"keywords": [
+			"Temnorid",
+			"Темнорід",
+			"Lords",
+			"Лорди",
+			"браузерна стратегія",
+			"темне середньовічне фентезі",
+			"Камінь і Вогонь"
+		],
+		"author": "Temnorid"
+	},
+	"pageSeo": {
+		"/": {
+			"image": "/seo/home.jpg",
+			"titleSuffix": ""
+		},
+		"/onboarding": {
+			"title": "Створення лорда",
+			"description": "Оберіть стихію Каменю або Вогню, регіон першого поселення та ім’я свого лорда у грі Темнорід: Лорди.",
+			"image": "/seo/onboarding.jpg",
+			"robots": "noindex, nofollow"
+		},
+		"/village": {
+			"title": "Поселення",
+			"description": "Перегляньте мапу свого поселення у грі Темнорід: Лорди та місця для майбутніх будівель. Будівництво ще в розробці.",
+			"image": "/seo/village.jpg",
+			"robots": "noindex, nofollow"
+		},
+		"/farm": {
+			"title": "Угіддя",
+			"description": "Досліджуйте угіддя свого лорда: ліси, камінь, залізо, воду, зерно та глину. Видобуток ресурсів у Темнорід: Лорди ще в розробці.",
+			"image": "/seo/farm.jpg",
+			"robots": "noindex, nofollow"
+		},
+		"/world": {
+			"title": "Світ",
+			"description": "Досліджуйте спільну мапу світу Темнороду, знаходьте поселення лордів та землі з ресурсами. Повертайтеся до власного поселення.",
+			"image": "/seo/world.jpg",
+			"robots": "noindex, nofollow"
+		}
+	}
+}

@@ -1,0 +1,212 @@
+/* Design tokens (CSS variables). Runtime-themable; keep SCSS using var(--token) */
+:root {
+	color-scheme: light;
+
+	/* brand / actions: ember gold on parchment */
+	--c-primary: #b97f20;
+	--c-primary-hover: #a97015;
+	--c-on-primary: #1e1006;
+	--c-primary-text: #804d0c;
+	--c-secondary: #932c21;
+	--c-secondary-hover: #7a2219;
+
+	/* surfaces */
+	--c-bg-primary: #f8f3e9;
+	--c-bg-secondary: #fefbf5;
+	--c-bg-tertiary: #efe7d9;
+
+	/* content */
+	--c-text: #3d332a;
+	--c-text-strong: #1d140d;
+	--c-text-muted: #6f6151;
+	--c-placeholder: #6f6151;
+
+	/* borders & elevation */
+	--c-border: #e0d6c6;
+	--shadow-sm: 0 1px 2px rgba(29, 20, 13, 0.06);
+	--shadow-md: 0 10px 30px rgba(29, 20, 13, 0.08);
+
+	/* typography */
+	--ff-base: 'Alegreya Sans', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+	--ff-serif: 'Alegreya', Georgia, 'Times New Roman', serif;
+	--fs: 17px;
+	--letter-spacing: 0.1px;
+
+	/* radius (default rounded) */
+	--radius: 6px;
+	--radius-card: 8px;
+	--radius-btn: 8px;
+
+	/* spacing (default comfortable) */
+	--sp-0: 0px;
+	--sp-1: 4px;
+	--sp-2: 8px;
+	--sp-3: 12px;
+	--sp-4: 16px;
+	--sp-5: 20px;
+	--sp-6: 24px;
+	--sp-7: 32px;
+	--sp-8: 40px;
+	--sp-10: 48px;
+	--sp-12: 56px;
+	--sp-16: 72px;
+	--sp-20: 96px;
+
+	/* layout */
+	--container: 1120px;
+	--reading: 40rem;
+	--gutter: 10px;
+
+	/* motion */
+	--easing: cubic-bezier(0.25, 0.8, 0.25, 1);
+	--motion-fast: 0.15s;
+	--motion: 0.25s;
+	--motion-slow: 0.4s;
+
+	/* focus */
+	--focus-ring: 0 0 0 3px rgba(185, 127, 32, 0.45);
+}
+
+/* ========= modes ========= */
+html[data-mode='dark'] {
+	color-scheme: dark;
+
+	/* brand: brighter ember against night stone */
+	--c-primary: #e4a74a;
+	--c-primary-hover: #efba64;
+	--c-primary-text: #e8b45e;
+
+	/* surfaces */
+	--c-bg-primary: #110c08;
+	--c-bg-secondary: #1b150f;
+	--c-bg-tertiary: #27201a;
+
+	/* borders & elevation */
+	--c-border: #372f27;
+	--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+	--shadow-md: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+	/* content */
+	--c-text: #d9d0c1;
+	--c-text-strong: #f3eee3;
+	--c-text-muted: #aa9c8a;
+	--c-placeholder: #aa9c8a;
+
+	--focus-ring: 0 0 0 3px rgba(228, 167, 74, 0.45);
+	--c-on-primary: #180f09;
+	--c-secondary: #e77b60;
+	--c-secondary-hover: #f0937a;
+}
+
+/* ========= density ========= */
+html[data-density='compact'] {
+	--sp-1: 2px;
+	--sp-2: 6px;
+	--sp-3: 10px;
+	--sp-4: 14px;
+	--sp-5: 18px;
+	--sp-6: 22px;
+	--sp-7: 28px;
+	--sp-8: 36px;
+	--sp-10: 42px;
+	--sp-12: 48px;
+	--sp-16: 64px;
+	--sp-20: 84px;
+
+	--gutter: 8px;
+}
+
+/* ========= radius ========= */
+html[data-radius='square'] {
+	--radius: 0px;
+	--radius-card: 0px;
+	--radius-btn: 0px;
+}
+
+/* ========= theme personality =========
+ * Light and dark are two designs, not one design in two colours.
+ * Light, "parchment and ember": a printed folio. Tall Cormorant titles, Alegreya prose,
+ *   wide margins, hairline rules, transparent cards with near-square corners.
+ * Dark, "hearth at night": a lit room. Carved Alegreya SC titles, Spectral prose,
+ *   tighter rhythm, no rules, raised rounded surfaces, pill buttons, an ember glow.
+ * New names (--t-*) so ngx-ui's runtime tokens never override them.
+ */
+:root {
+	--t-display-font: 'Cormorant Garamond', 'Alegreya', Georgia, serif;
+	--t-display-weight: 600;
+	--t-display-tracking: -0.015em;
+	--t-display-leading: 1.02;
+	--t-display-size: clamp(2.75rem, 6vw, 4.5rem);
+	--t-hero-size: clamp(3.5rem, 10vw, 7rem);
+	--t-heading-size: clamp(1.9rem, 3.5vw, 2.6rem);
+	--t-item-size: 1.45rem;
+
+	--t-prose-font: 'Alegreya', Georgia, serif;
+	--t-prose-size: 1.25rem;
+	--t-prose-leading: 1.85;
+	--t-para-gap: 1.35rem;
+	--t-lead-size: clamp(1.3rem, 2.2vw, 1.6rem);
+	--t-numeral-font: 'Cormorant Garamond', Georgia, serif;
+	--t-numeral-style: italic;
+
+	--t-page-y: clamp(3.5rem, 8vw, 7rem);
+	--t-stack: 3.5rem;
+	--t-gap: 2rem;
+
+	--t-radius: 2px;
+	--t-radius-card: 3px;
+	--t-radius-btn: 2px;
+	--t-card-bg: transparent;
+	--t-card-border: var(--c-border);
+	--t-card-shadow: none;
+	--t-card-pad: 1.75rem;
+	--t-card-hover-bg: var(--c-bg-secondary);
+
+	--t-rule: var(--c-border);
+	--t-bar-bg: var(--c-bg-primary);
+	--t-bar-y: 1.25rem;
+	--t-btn-height: 48px;
+	--t-btn-pad: 1.4rem;
+	--t-btn-weight: 600;
+	--t-hero-glow: 0%;
+}
+
+html[data-mode='dark'] {
+	--t-display-font: 'Alegreya SC', 'Alegreya', Georgia, serif;
+	--t-display-weight: 700;
+	--t-display-tracking: 0.03em;
+	--t-display-leading: 1.1;
+	--t-display-size: clamp(2.1rem, 4.5vw, 3.1rem);
+	--t-hero-size: clamp(2.8rem, 7vw, 4.75rem);
+	--t-heading-size: clamp(1.45rem, 2.6vw, 1.85rem);
+	--t-item-size: 1.2rem;
+
+	--t-prose-font: 'Spectral', Georgia, serif;
+	--t-prose-size: 1.12rem;
+	--t-prose-leading: 1.75;
+	--t-para-gap: 1rem;
+	--t-lead-size: clamp(1.1rem, 1.8vw, 1.3rem);
+	--t-numeral-font: 'Alegreya SC', Georgia, serif;
+	--t-numeral-style: normal;
+
+	--t-page-y: clamp(2.25rem, 5vw, 4rem);
+	--t-stack: 2.25rem;
+	--t-gap: 1rem;
+
+	--t-radius: 10px;
+	--t-radius-card: 16px;
+	--t-radius-btn: 999px;
+	--t-card-bg: var(--c-bg-secondary);
+	--t-card-border: transparent;
+	--t-card-shadow: inset 0 1px 0 rgba(255, 236, 205, 0.05), 0 12px 32px rgba(0, 0, 0, 0.45);
+	--t-card-pad: 1.25rem;
+	--t-card-hover-bg: var(--c-bg-tertiary);
+
+	--t-rule: transparent;
+	--t-bar-bg: var(--c-bg-secondary);
+	--t-bar-y: 0.6rem;
+	--t-btn-height: 44px;
+	--t-btn-pad: 1.15rem;
+	--t-btn-weight: 700;
+	--t-hero-glow: 22%;
+}

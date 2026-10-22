@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lords.temnorid.com/sitemap.xml

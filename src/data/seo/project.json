@@ -1,0 +1,61 @@
+{
+	"@context": "https://schema.org",
+	"@graph": [
+		{
+			"@type": "Organization",
+			"@id": "https://temnorid.com/#organization",
+			"name": "Temnorid",
+			"url": "https://temnorid.com/"
+		},
+		{
+			"@type": "WebSite",
+			"@id": "https://temnorid.com/#website",
+			"name": "Temnorid",
+			"url": "https://temnorid.com/",
+			"publisher": { "@id": "https://temnorid.com/#organization" }
+		},
+		{
+			"@type": "WebSite",
+			"@id": "https://lords.temnorid.com/#website",
+			"name": "Temnorid: Lords",
+			"alternateName": "Темнорід: Лорди",
+			"url": "https://lords.temnorid.com/",
+			"inLanguage": "uk",
+			"publisher": { "@id": "https://temnorid.com/#organization" },
+			"isPartOf": { "@id": "https://temnorid.com/#website" },
+			"about": { "@id": "https://lords.temnorid.com/#game" }
+		},
+		{
+			"@type": "VideoGame",
+			"@id": "https://lords.temnorid.com/#game",
+			"name": "Temnorid: Lords",
+			"alternateName": "Темнорід: Лорди",
+			"url": "https://lords.temnorid.com/",
+			"description": "Темнорід: Лорди — браузерна стратегія в розробці у світі темного середньовічного фентезі XIV століття. Оберіть Камінь або Вогонь, заснуйте поселення та досліджуйте світ.",
+			"image": "https://lords.temnorid.com/seo/home.jpg",
+			"genre": ["Strategy", "Dark medieval fantasy"],
+			"gamePlatform": "Web browser",
+			"operatingSystem": "Any operating system with a modern web browser",
+			"applicationCategory": "GameApplication",
+			"inLanguage": ["uk", "en"],
+			"creativeWorkStatus": "In development",
+			"publisher": { "@id": "https://temnorid.com/#organization" },
+			"isPartOf": { "@id": "https://temnorid.com/#website" }
+		},
+		{
+			"@type": "WebPage",
+			"@id": "https://lords.temnorid.com/#webpage",
+			"url": "https://lords.temnorid.com/",
+			"name": "Темнорід: Лорди — браузерна фентезі-стратегія",
+			"inLanguage": "uk",
+			"isPartOf": { "@id": "https://lords.temnorid.com/#website" },
+			"about": { "@id": "https://lords.temnorid.com/#game" },
+			"primaryImageOfPage": {
+				"@type": "ImageObject",
+				"url": "https://lords.temnorid.com/seo/home.jpg",
+				"width": 1200,
+				"height": 630
+			}
+		}
+	]
+}

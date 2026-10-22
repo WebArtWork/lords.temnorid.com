@@ -1,0 +1,93 @@
+import { inject, Service } from '@angular/core';
+import { ElementId } from '../element/element.interface';
+import { FARM_LAYOUT, generateFarmPlots } from '../farm/farm.generator';
+import { FarmSave } from '../farm/farm.interface';
+import { FirebaseService } from '../firebase/firebase.service';
+import { createSeed } from '../map/map-geometry';
+import { isOnboarded, LordsProgress, ProgressService } from '../progress/progress.service';
+import { RegionId } from '../region/region.interface';
+import { generateVillageSlots, VILLAGE_LAYOUT } from '../village/village.generator';
+import { VillageSave } from '../village/village.interface';
+
+/** Everything the in-game pages need about the signed-in lord. */
+export interface GameState {
+	uid: string;
+	lordName: string;
+	element: ElementId;
+	region: RegionId;
+	village: VillageSave;
+	farm: FarmSave;
+}
+
+/**
+ * Loads the lord's save for the in-game pages and founds their maps on first visit. Kept for the
+ * session, so moving between the village and the farm does not read Firestore again.
+ */
+@Service()
+export class GameService {
+	private readonly _firebase = inject(FirebaseService);
+	private readonly _progress = inject(ProgressService);
+	private _cache: GameState | null = null;
+
+	/** The lord's game, or null when they are signed out or have not finished onboarding. */
+	async load(): Promise<GameState | null> {
+		const user = await this._firebase.whenReady();
+
+		if (!user) {
+			return null;
+		}
+
+		if (this._cache?.uid === user.uid) {
+			return this._cache;
+		}
+
+		const progress = await this._progress.load(user.uid);
+
+		if (!progress || !isOnboarded(progress)) {
+			return null;
+		}
+
+		const element = progress.firstLocation!.element!;
+		const region = progress.firstLocation!.region!;
+		const maps = this._missingMaps(progress, element, region);
+
+		if (maps.village || maps.farm) {
+			await this._progress.setMaps(user.uid, maps);
+		}
+
+		this._cache = {
+			uid: user.uid,
+			lordName: progress.lord!.name!,
+			element,
+			region,
+			village: progress.village ?? maps.village!,
+			farm: progress.farm ?? maps.farm!,
+		};
+
+		return this._cache;
+	}
+
+	async signOut() {
+		this._cache = null;
+		await this._firebase.signOut();
+	}
+
+	/** Generates whichever maps this lord does not have yet. */
+	private _missingMaps(progress: LordsProgress, element: ElementId, region: RegionId) {
+		const maps: Pick<LordsProgress, 'village' | 'farm'> = {};
+
+		if (!progress.village) {
+			const seed = createSeed();
+
+			maps.village = { seed, layout: VILLAGE_LAYOUT, slots: generateVillageSlots(seed) };
+		}
+
+		if (!progress.farm) {
+			const seed = createSeed();
+
+			maps.farm = { seed, layout: FARM_LAYOUT, plots: generateFarmPlots(seed, element, region) };
+		}
+
+		return maps;
+	}
+}

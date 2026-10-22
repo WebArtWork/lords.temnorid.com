@@ -1,0 +1,25 @@
+import { RenderMode, ServerRoute } from '@angular/ssr';
+
+export const serverRoutes: ServerRoute[] = [
+	{
+		// Player pages depend on the signed-in session, which only exists in the browser.
+		path: 'onboarding',
+		renderMode: RenderMode.Client,
+	},
+	{
+		path: 'village',
+		renderMode: RenderMode.Client,
+	},
+	{
+		path: 'farm',
+		renderMode: RenderMode.Client,
+	},
+	{
+		path: 'world',
+		renderMode: RenderMode.Client,
+	},
+	{
+		path: '**',
+		renderMode: RenderMode.Prerender,
+	},
+];
