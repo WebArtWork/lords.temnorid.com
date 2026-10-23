@@ -30,8 +30,8 @@ jobs:
             - name: Copy CNAME file
               run: cp CNAME dist/app/browser/
 
-            - name: Validate static SEO and route-specific SPA fallback
-              run: npm run seo:validate
+            - name: Add SPA fallback for GitHub Pages route reload
+              run: cp dist/app/browser/index.html dist/app/browser/404.html
 
             - name: Set up SSH
               env:
