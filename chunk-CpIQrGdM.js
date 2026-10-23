@@ -1,0 +1,1 @@
+var t=[{id:`north-west`,name:`Північний захід`,icon:`north_west`},{id:`north-east`,name:`Північний схід`,icon:`north_east`},{id:`south-west`,name:`Південний захід`,icon:`south_west`},{id:`south-east`,name:`Південний схід`,icon:`south_east`}];export{t};
