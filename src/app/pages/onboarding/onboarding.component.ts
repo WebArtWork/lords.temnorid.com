@@ -1,9 +1,17 @@
-import { Component, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Component, computed, effect, inject, PLATFORM_ID, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ELEMENTS } from '../../feature/element/element.data';
 import { ElementId } from '../../feature/element/element.interface';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
+import {
+	generateName,
+	joinName,
+	NameParts,
+	NamePool,
+	NamesService,
+} from '../../feature/names/names.service';
 import {
 	isOnboarded,
 	LORD_NAME_MAX,
@@ -19,7 +27,8 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 /**
  * First steps of a new lord: pick the element their first location is founded on, the quarter of
  * the map they are dropped into, and the name of the character who leads the village. Then on to
- * the village.
+ * the village. The name starts generated from the shared Temnorid name pool: the player can lock
+ * the first or second name and reroll the other, or type their own.
  */
 @Component({
 	imports: [TranslateDirective],
@@ -193,6 +202,51 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								<p class="writer-hint" id="lord-name-hint" translate>Від 2 до 40 символів.</p>
 							}
 
+							@if (namePool()) {
+								<div class="mt-6 flex flex-wrap items-center gap-3">
+									@if (nameParts(); as parts) {
+										<button
+											class="btn"
+											[class.btn--primary]="locked().first"
+											[attr.aria-pressed]="locked().first"
+											(click)="toggleLock('first')"
+											type="button"
+										>
+											<span class="material-symbols-outlined" aria-hidden="true">{{
+												locked().first ? 'lock' : 'lock_open'
+											}}</span>
+											<span class="sr-only" translate>Закріпити ім'я</span>
+											{{ parts.first }}
+										</button>
+										<button
+											class="btn"
+											[class.btn--primary]="locked().second"
+											[attr.aria-pressed]="locked().second"
+											(click)="toggleLock('second')"
+											type="button"
+										>
+											<span class="material-symbols-outlined" aria-hidden="true">{{
+												locked().second ? 'lock' : 'lock_open'
+											}}</span>
+											<span class="sr-only" translate>Закріпити прізвисько</span>
+											{{ parts.second }}
+										</button>
+									}
+									<button
+										class="btn"
+										[disabled]="saving() || (locked().first && locked().second && !!nameParts())"
+										(click)="rerollName()"
+										type="button"
+									>
+										<span class="material-symbols-outlined" aria-hidden="true">casino</span>
+										<span translate>Інше ім'я</span>
+									</button>
+								</div>
+								<p class="writer-hint mt-2" translate>
+									Закріпіть частину, яка подобається, і згенеруйте іншу. Або впишіть своє ім'я.
+								</p>
+							}
+
 							<div class="mt-8 flex flex-wrap items-center gap-3">
 								<button class="btn btn--primary" [disabled]="saving()" type="submit">
 									<span class="material-symbols-outlined" aria-hidden="true">flag</span>
@@ -293,9 +347,29 @@ export class OnboardingComponent {
 	protected readonly lordName = signal('');
 	/** Shown after a submit with an invalid name, cleared as the player types. */
 	protected readonly nameError = signal(false);
+	/** The shared name pool; null until loaded, or when it could not load (typing still works). */
+	protected readonly namePool = signal<NamePool | null>(null);
+	private readonly _generated = signal<NameParts | null>(null);
+	protected readonly locked = signal({ first: false, second: false });
+	/** The generated parts while the field still holds them; typing a different name hides them. */
+	protected readonly nameParts = computed(() => {
+		const parts = this._generated();
+
+		return parts && joinName(parts) === this.lordName() ? parts : null;
+	});
+
+	private readonly _names = inject(NamesService);
 
 	constructor() {
 		void this._restore();
+
+		if (isPlatformBrowser(inject(PLATFORM_ID))) {
+			effect(() => {
+				if (this.step() === 'lord') {
+					untracked(() => void this._loadNames());
+				}
+			});
+		}
 	}
 
 	protected selectElement(element: ElementId) {
@@ -317,7 +391,10 @@ export class OnboardingComponent {
 		const element = this.selectedElement();
 
 		if (element) {
-			await this._save((uid) => this._progress.setFirstLocationElement(uid, element), 'region');
+			await this._save(
+				(uid) => this._progress.setFirstLocationElement(uid, element),
+				'region',
+			);
 		}
 	}
 
@@ -333,6 +410,37 @@ export class OnboardingComponent {
 		this.lordName.set(name);
 		this.nameError.set(false);
 		this.error.set(false);
+	}
+
+	protected toggleLock(part: keyof NameParts) {
+		this.locked.update((locked) => ({ ...locked, [part]: !locked[part] }));
+	}
+
+	/** New parts for whatever is not locked. Locks only count while their parts are shown. */
+	protected rerollName() {
+		const pool = this.namePool();
+
+		if (!pool) {
+			return;
+		}
+
+		const shown = this.nameParts();
+		const locked = this.locked();
+		const parts = generateName(
+			pool,
+			{
+				first: shown && locked.first ? shown.first : undefined,
+				second: shown && locked.second ? shown.second : undefined,
+			},
+			LORD_NAME_MAX,
+		);
+
+		if (!shown) {
+			this.locked.set({ first: false, second: false });
+		}
+
+		this._generated.set(parts);
+		this.setLordName(joinName(parts));
 	}
 
 	protected async saveLord() {
@@ -374,6 +482,20 @@ export class OnboardingComponent {
 			this.error.set(true);
 		} finally {
 			this.saving.set(false);
+		}
+	}
+
+	/** Loads the pool and, when the player has no name yet, starts them with a generated one. */
+	private async _loadNames() {
+		try {
+			this.namePool.set(await this._names.load());
+		} catch (error) {
+			console.error(error);
+			return;
+		}
+
+		if (!this.lordName().trim()) {
+			this.rerollName();
 		}
 	}
 
