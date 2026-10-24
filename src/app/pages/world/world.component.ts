@@ -1,11 +1,19 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
+import { ModalService } from '@wawjs/ngx-ui';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { Point } from '../../feature/map/map-geometry';
 import { REGIONS } from '../../feature/region/region.data';
-import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data';
+import { RESOURCE_BY_ID } from '../../feature/resource/resource.data';
+import { cityAt, geoAt, WorldCity } from '../../feature/world/world.geography';
 import { isExplored, quadrantOf, terrainAt } from '../../feature/world/world.generator';
+import { WorldCitiesModalComponent } from '../../feature/world/world-cities-modal.component';
+import { WorldJumpModalComponent } from '../../feature/world/world-jump-modal.component';
+import {
+	WorldTileInfo,
+	WorldTileModalComponent,
+} from '../../feature/world/world-tile-modal.component';
 import { WorldState } from '../../feature/world/world.interface';
 import { WorldMapComponent } from '../../feature/world/world-map.component';
 import { WorldService } from '../../feature/world/world.service';
@@ -21,89 +29,43 @@ const RESOURCE_LAND: Record<string, string> = {
 	clay: 'Глинище',
 };
 
-/** The shared world: every lord's village on one grid, growing outward quarter by quarter. */
+/** The shared world: every lord's village on one grid, filling the window under the top bar. */
 @Component({
 	imports: [GameHeaderComponent, TranslateDirective, WorldMapComponent],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
-			@if (game(); as game) {
-				<app-game-header title="Світ" [lordName]="game.lordName" />
-
-				@if (world(); as world) {
-					<div class="mt-6 flex flex-wrap items-end gap-3">
-						<button class="btn" (click)="goHome()" type="button">
-							<span class="material-symbols-outlined" aria-hidden="true">my_location</span>
-							<span translate>Моє поселення</span>
-						</button>
-						<form class="flex flex-wrap items-end gap-2" (submit)="$event.preventDefault(); jump()">
-							<label class="block">
-								<span class="writer-label">X</span>
-								<input class="writer-input w-24" inputmode="numeric" name="x" type="number" [value]="jumpX()" (input)="jumpX.set($any($event.target).value)" />
-							</label>
-							<label class="block">
-								<span class="writer-label">Y</span>
-								<input class="writer-input w-24" inputmode="numeric" name="y" type="number" [value]="jumpY()" (input)="jumpY.set($any($event.target).value)" />
-							</label>
-							<button class="btn" type="submit">
-								<span class="material-symbols-outlined" aria-hidden="true">travel_explore</span>
-								<span translate>Перейти</span>
-							</button>
-						</form>
-					</div>
-
-					<div class="world-frame mt-4">
-						<app-world-map
-							[counts]="world.counts"
-							[villages]="world.villages"
-							[mineUid]="world.mine.uid"
-							[(centre)]="centre"
-							[(selected)]="selected"
-						/>
-					</div>
-
-					<div class="mt-4 min-h-20" aria-live="polite">
-						<p class="t-item">
-							{{ tileInfo().title }}
-							<span class="t-numeral ml-2 text-lg tabular-nums">({{ selected().x }}|{{ selected().y }})</span>
-						</p>
-						@if (tileInfo().detail) {
-							<p class="mt-1 text-[var(--c-text-muted)]">{{ tileInfo().detail }}</p>
-						}
-						<p class="mt-1 text-sm text-[var(--c-text-muted)]">
-							<span translate>Чверть світу</span>: {{ tileInfo().quarter }}
-						</p>
-					</div>
-
-					<ul class="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm" [translate]="{ ariaLabel: 'Умовні позначки' }">
-						@for (resource of resources; track resource.id) {
-							<li class="flex items-center gap-1.5">
-								<span class="material-symbols-outlined text-[18px]" [style.color]="resource.color" aria-hidden="true">{{ resource.icon }}</span>
-								<span [translate]="land[resource.id]">{{ land[resource.id] }}</span>
-							</li>
-						}
-					</ul>
-				} @else if (worldError()) {
-					<p class="mt-6 text-[var(--c-secondary)]" role="alert" translate>
+		@if (world(); as world) {
+			<section class="h-full">
+				<app-game-header title="Світ" />
+				<app-world-map
+					class="h-full"
+					[counts]="world.counts"
+					[villages]="world.villages"
+					[mineUid]="world.mine.uid"
+					[(centre)]="centre"
+					[(selected)]="selected"
+					[(zoom)]="zoom"
+					(home)="goHome()"
+					(navigate)="openJump()"
+					(cities)="openCities()"
+					(pick)="openTile($event)"
+				/>
+			</section>
+		} @else {
+			<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
+				@if (error()) {
+					<p class="text-[var(--c-secondary)]" role="alert" translate>
 						Не вдалося завантажити світ. Оновіть сторінку.
 					</p>
 				} @else {
-					<p class="mt-6 text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
+					<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
 				}
-			} @else if (error()) {
-				<p class="text-[var(--c-secondary)]" role="alert" translate>
-					Не вдалося завантажити світ. Оновіть сторінку.
-				</p>
-			} @else {
-				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
-			}
-		</section>
+			</section>
+		}
 	`,
 	styles: `
-		.world-frame {
-			overflow: hidden;
-			border: 1px solid var(--c-border);
-			border-radius: var(--t-radius-card);
-			box-shadow: var(--shadow-md);
+		:host {
+			display: block;
+			height: 100%;
 		}
 	`,
 })
@@ -111,62 +73,15 @@ export class WorldComponent {
 	private readonly _game = inject(GameService);
 	private readonly _world = inject(WorldService);
 	private readonly _router = inject(Router);
+	private readonly _modal = inject(ModalService);
 	private readonly _translateService = inject(TranslateService);
 	private readonly _languageService = inject(LanguageService);
 
-	protected readonly resources = RESOURCES;
-	protected readonly land = RESOURCE_LAND;
-	protected readonly game = signal<GameState | null>(null);
 	protected readonly world = signal<WorldState | null>(null);
 	protected readonly error = signal(false);
-	protected readonly worldError = signal(false);
 	protected readonly centre = signal<Point>({ x: 0, y: 0 });
 	protected readonly selected = signal<Point>({ x: 0, y: 0 });
-	protected readonly jumpX = signal('0');
-	protected readonly jumpY = signal('0');
-
-	/** Plain-language description of the selected tile, in the reader's language. */
-	protected readonly tileInfo = computed(() => {
-		this._languageService.language();
-		const t = (text: string) => this._translateService.translate(text)();
-		const world = this.world();
-		const { x, y } = this.selected();
-		const quarter = t(REGIONS.find((region) => region.id === quadrantOf(x, y))!.name);
-
-		if (!world) {
-			return { title: '', detail: '', quarter };
-		}
-
-		if (!isExplored(x, y, world.counts)) {
-			return {
-				title: t('Ще не відкриті землі'),
-				detail: t('Світ розширюється, коли в цю чверть приходять нові лорди.'),
-				quarter,
-			};
-		}
-
-		const village = world.villages.find((v) => v.x === x && v.y === y);
-
-		if (village) {
-			return {
-				title: village.uid === world.mine.uid ? t('Ваше поселення') : `${village.lordName}`,
-				detail: village.uid === world.mine.uid ? '' : t('Поселення іншого лорда'),
-				quarter,
-			};
-		}
-
-		const terrain = terrainAt(x, y);
-
-		if (terrain === 'heart') {
-			return { title: t('Серце світу'), detail: t('Звідси світ почав рости.'), quarter };
-		}
-
-		if (terrain === 'grass') {
-			return { title: t('Вільна земля'), detail: '', quarter };
-		}
-
-		return { title: t(RESOURCE_LAND[terrain]!), detail: t(RESOURCE_BY_ID[terrain].name), quarter };
-	});
+	protected readonly zoom = signal(0);
 
 	constructor() {
 		void this._load();
@@ -181,40 +96,142 @@ export class WorldComponent {
 		}
 	}
 
-	protected jump() {
-		const x = Math.round(Number(this.jumpX()));
-		const y = Math.round(Number(this.jumpY()));
+	protected openJump() {
+		this._modal.show({
+			component: WorldJumpModalComponent,
+			size: 'small',
+			from: this.selected(),
+			go: (point: Point) => this._goTo(point),
+			ariaLabelledBy: 'world-jump-modal-title',
+		});
+	}
 
-		if (Number.isFinite(x) && Number.isFinite(y)) {
-			this.centre.set({ x, y });
-			this.selected.set({ x, y });
+	protected openCities() {
+		this._modal.show({
+			component: WorldCitiesModalComponent,
+			size: 'mid',
+			go: (city: WorldCity) => this._goTo(city),
+			ariaLabelledBy: 'world-cities-modal-title',
+		});
+	}
+
+	protected openTile(point: Point) {
+		const info = this._describe(point);
+
+		if (info) {
+			this._modal.show({
+				component: WorldTileModalComponent,
+				size: 'small',
+				info,
+				ariaLabelledBy: 'world-tile-modal-title',
+			});
 		}
 	}
 
+	/** Plain-language description of a tile, in the reader's language. */
+	private _describe({ x, y }: Point): WorldTileInfo | null {
+		const world = this.world();
+
+		if (!world) {
+			return null;
+		}
+
+		this._languageService.language();
+		const t = (text: string) => this._translateService.translate(text)();
+		const base = {
+			x,
+			y,
+			quarter: t(REGIONS.find((region) => region.id === quadrantOf(x, y))!.name),
+		};
+		// Towns of the 14th century are known to everyone, even beyond the explored land.
+		const city = cityAt(x, y);
+
+		if (city) {
+			return {
+				...base,
+				icon: 'castle',
+				color: 'var(--c-primary-text)',
+				title: t(city.name),
+				detail: t(city.about),
+			};
+		}
+
+		if (!isExplored(x, y, world.counts)) {
+			return {
+				...base,
+				icon: 'visibility_off',
+				color: 'var(--c-text-muted)',
+				title: t('Ще не відкриті землі'),
+				detail: t('Світ розширюється, коли в цю чверть приходять нові лорди.'),
+			};
+		}
+
+		const village = world.villages.find((v) => v.x === x && v.y === y);
+
+		if (village) {
+			const mine = village.uid === world.mine.uid;
+
+			return {
+				...base,
+				icon: mine ? 'home' : 'cottage',
+				color: 'var(--c-primary-text)',
+				title: mine ? t('Ваше поселення') : village.lordName,
+				detail: mine ? '' : t('Поселення іншого лорда'),
+			};
+		}
+
+		const terrain = terrainAt(x, y);
+
+		if (terrain === 'water' && geoAt(x, y).riverDistance <= 1) {
+			return {
+				...base,
+				icon: 'water',
+				color: '#3f6f86',
+				title: t('Річка'),
+				detail: t(RESOURCE_BY_ID.water.name),
+			};
+		}
+
+		if (terrain === 'grass' || terrain === 'heart') {
+			return {
+				...base,
+				icon: 'nature',
+				color: '#5d7d40',
+				title: t('Вільна земля'),
+				detail: '',
+			};
+		}
+
+		const resource = RESOURCE_BY_ID[terrain];
+
+		return {
+			...base,
+			icon: resource.icon,
+			color: resource.color,
+			title: t(RESOURCE_LAND[terrain]!),
+			detail: t(resource.name),
+		};
+	}
+
+	private _goTo({ x, y }: Point) {
+		this.centre.set({ x, y });
+		this.selected.set({ x, y });
+	}
+
 	private async _load() {
-		let game: GameState | null;
-
 		try {
-			game = await this._game.load();
-		} catch (error) {
-			console.error(error);
-			this.error.set(true);
-			return;
-		}
+			const game: GameState | null = await this._game.load();
 
-		if (!game) {
-			await this._router.navigateByUrl('/onboarding');
-			return;
-		}
+			if (!game) {
+				await this._router.navigateByUrl('/onboarding');
+				return;
+			}
 
-		this.game.set(game);
-
-		try {
 			this.world.set(await this._world.load(game));
 			this.goHome();
 		} catch (error) {
 			console.error(error);
-			this.worldError.set(true);
+			this.error.set(true);
 		}
 	}
 }

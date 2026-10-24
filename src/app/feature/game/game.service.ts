@@ -1,6 +1,6 @@
-import { inject, Service } from '@angular/core';
+import { computed, inject, Service, signal } from '@angular/core';
 import { ElementId } from '../element/element.interface';
-import { FARM_LAYOUT, generateFarmPlots } from '../farm/farm.generator';
+import { FARM_LAYOUT, farmResourceCounts, generateFarmPlots } from '../farm/farm.generator';
 import { FarmSave } from '../farm/farm.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { createSeed } from '../map/map-geometry';
@@ -28,9 +28,26 @@ export class GameService {
 	private readonly _firebase = inject(FirebaseService);
 	private readonly _progress = inject(ProgressService);
 	private _cache: GameState | null = null;
+	/** The load in flight, shared so the top bar and a page never found the maps twice. */
+	private _loading: Promise<GameState | null> | null = null;
+
+	/** The last loaded game, for chrome such as the top bar that only shows it. */
+	readonly game = signal<GameState | null>(null);
+	/** Farm plots per resource, shown in the top bar. Null until a game is loaded. */
+	readonly resourceCounts = computed(() => {
+		const game = this.game();
+
+		return game ? farmResourceCounts(game.farm.plots) : null;
+	});
 
 	/** The lord's game, or null when they are signed out or have not finished onboarding. */
-	async load(): Promise<GameState | null> {
+	load(): Promise<GameState | null> {
+		this._loading ??= this._load().finally(() => (this._loading = null));
+
+		return this._loading;
+	}
+
+	private async _load(): Promise<GameState | null> {
 		const user = await this._firebase.whenReady();
 
 		if (!user) {
@@ -64,11 +81,15 @@ export class GameService {
 			farm: progress.farm ?? maps.farm!,
 		};
 
+		this.game.set(this._cache);
+
 		return this._cache;
 	}
 
 	async signOut() {
 		this._cache = null;
+		this._loading = null;
+		this.game.set(null);
 		await this._firebase.signOut();
 	}
 
@@ -85,7 +106,11 @@ export class GameService {
 		if (!progress.farm) {
 			const seed = createSeed();
 
-			maps.farm = { seed, layout: FARM_LAYOUT, plots: generateFarmPlots(seed, element, region) };
+			maps.farm = {
+				seed,
+				layout: FARM_LAYOUT,
+				plots: generateFarmPlots(seed, element, region),
+			};
 		}
 
 		return maps;

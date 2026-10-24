@@ -8,7 +8,9 @@ import { VillageMap } from './village.interface';
 	selector: 'app-village-map',
 	template: `
 		<svg
-			class="village-map block h-auto w-full"
+			class="village-map block w-full"
+			[class.h-auto]="!fill()"
+			[class.h-full]="fill()"
 			[attr.viewBox]="'0 0 ' + map().width + ' ' + map().height"
 			role="group"
 			[attr.aria-label]="labels().map"
@@ -19,7 +21,8 @@ import { VillageMap } from './village.interface';
 				</pattern>
 			</defs>
 
-			<rect [attr.width]="map().width" [attr.height]="map().height" [attr.fill]="palette().outer" />
+			<!-- Three times the map, so when the map fills a box of another shape the spare room is ground too. -->
+			<rect [attr.x]="-map().width" [attr.y]="-map().height" [attr.width]="map().width * 3" [attr.height]="map().height * 3" [attr.fill]="palette().outer" />
 
 			@for (field of map().fields; track $index) {
 				<path [attr.d]="field" [attr.fill]="palette().field" [attr.stroke]="palette().fieldLine" stroke-width="3" />
@@ -183,6 +186,8 @@ export class VillageMapComponent {
 	readonly map = input.required<VillageMap>();
 	readonly element = input.required<ElementId>();
 	readonly selected = model<number | null>(null);
+	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
+	readonly fill = input(false);
 
 	protected readonly palette = computed(() => this.map().palette);
 	protected readonly planks = [-16, -6, 4, 14];

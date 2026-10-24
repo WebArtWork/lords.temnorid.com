@@ -10,7 +10,9 @@ import { FarmMap } from './farm.interface';
 	imports: [RouterLink],
 	template: `
 		<svg
-			class="farm-map block h-auto w-full"
+			class="farm-map block w-full"
+			[class.h-auto]="!fill()"
+			[class.h-full]="fill()"
 			[attr.viewBox]="'0 0 ' + map().width + ' ' + map().height"
 			role="group"
 			[attr.aria-label]="labels().map"
@@ -21,7 +23,8 @@ import { FarmMap } from './farm.interface';
 				</pattern>
 			</defs>
 
-			<rect [attr.width]="map().width" [attr.height]="map().height" fill="#86a05a" />
+			<!-- Three times the map, so when the map fills a box of another shape the spare room is grass too. -->
+			<rect [attr.x]="-map().width" [attr.y]="-map().height" [attr.width]="map().width * 3" [attr.height]="map().height * 3" fill="#86a05a" />
 
 			@for (road of map().roads; track $index) {
 				<path [attr.d]="road" fill="none" stroke="#ccb27f" stroke-width="8" stroke-linecap="round" />
@@ -173,6 +176,8 @@ export class FarmMapComponent {
 
 	readonly map = input.required<FarmMap>();
 	readonly selected = model<number | null>(null);
+	/** Fill the host's whole box, keeping every plot in view, instead of sizing from the width. */
+	readonly fill = input(false);
 
 	protected readonly resources = RESOURCE_BY_ID;
 	protected readonly houses = [

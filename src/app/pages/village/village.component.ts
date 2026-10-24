@@ -1,50 +1,52 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
+import { ModalService } from '@wawjs/ngx-ui';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { generateVillage } from '../../feature/village/village.generator';
 import { VillageMapComponent } from '../../feature/village/village-map.component';
+import { VillageSlotModalComponent } from '../../feature/village/village-slot-modal.component';
 import { GameHeaderComponent } from '../../layouts/game-header/game-header.component';
 
 /** The lord's village: a generated map with empty places to build on. */
 @Component({
 	imports: [GameHeaderComponent, TranslateDirective, VillageMapComponent],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
-			@if (state(); as state) {
-				<app-game-header title="Поселення" [lordName]="state.lordName" />
-
-				<div class="game-map-frame mt-6">
-					<app-village-map [map]="map()!" [element]="state.element" [(selected)]="selected" />
-				</div>
-
-				<div class="mt-4 min-h-14" aria-live="polite">
-					@if (selected(); as slot) {
-						<p class="t-item">
-							<span translate>Вільне місце</span> {{ slot }}
-						</p>
-						<p class="mt-1 text-[var(--c-text-muted)]" translate>
-							Тут постане будівля. Будівництво з'явиться згодом.
-						</p>
-					} @else {
-						<p class="text-[var(--c-text-muted)]" translate>
-							Оберіть вільне місце на мапі, щоб побачити, що тут можна звести.
-						</p>
-					}
-				</div>
-			} @else if (error()) {
-				<p class="text-[var(--c-secondary)]" role="alert" translate>
-					Не вдалося завантажити поселення. Оновіть сторінку.
-				</p>
-			} @else {
-				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
-			}
-		</section>
+		@if (state(); as state) {
+			<section class="h-full">
+				<app-game-header title="Поселення" />
+				<!-- Fills everything under the top bar; the map keeps every place in view. -->
+				<app-village-map
+					class="h-full"
+					[map]="map()!"
+					[element]="state.element"
+					[fill]="true"
+					[(selected)]="selected"
+				/>
+			</section>
+		} @else {
+			<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
+				@if (error()) {
+					<p class="text-[var(--c-secondary)]" role="alert" translate>
+						Не вдалося завантажити поселення. Оновіть сторінку.
+					</p>
+				} @else {
+					<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
+				}
+			</section>
+		}
+	`,
+	styles: `
+		:host {
+			display: block;
+			height: 100%;
+		}
 	`,
 })
 export class VillageComponent {
 	private readonly _game = inject(GameService);
 	private readonly _router = inject(Router);
+	private readonly _modal = inject(ModalService);
 
 	protected readonly state = signal<GameState | null>(null);
 	protected readonly error = signal(false);
@@ -59,6 +61,25 @@ export class VillageComponent {
 
 	constructor() {
 		void this._load();
+
+		// Picking a free place opens what can stand there; closing the modal lets go of the place.
+		effect(() => {
+			const slot = this.selected();
+
+			if (slot !== null) {
+				untracked(() => this._openSlot(slot));
+			}
+		});
+	}
+
+	private _openSlot(slot: number) {
+		this._modal.show({
+			component: VillageSlotModalComponent,
+			size: 'small',
+			slot,
+			ariaLabelledBy: 'village-slot-modal-title',
+			onClose: () => this.selected.set(null),
+		});
 	}
 
 	private async _load() {

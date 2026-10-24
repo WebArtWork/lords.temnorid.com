@@ -50,6 +50,15 @@ export const routes: Routes = [
 		loadComponent: () => import('./pages/world/world.component').then((m) => m.WorldComponent),
 	},
 	{
+		path: 'profile',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/profile'),
+		},
+		loadComponent: () =>
+			import('./pages/profile/profile.component').then((m) => m.ProfileComponent),
+	},
+	{
 		path: '**',
 		redirectTo: '',
 	},

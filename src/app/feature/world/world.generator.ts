@@ -2,15 +2,19 @@ import { REGION_BIAS } from '../farm/farm.generator';
 import { Point } from '../map/map-geometry';
 import { RegionId } from '../region/region.interface';
 import { RESOURCES } from '../resource/resource.data';
+import { ResourceId } from '../resource/resource.interface';
+import { geoAt, nearCity } from './world.geography';
 import { WorldCounts, WorldTerrain } from './world.interface';
+import { hash2 as _hash, valueNoise as _noise } from './world.noise';
 
 /**
  * The shared world: an endless grid of tiles around the heart at (0|0). x grows to the east,
  * y to the south.
  *
- * Terrain is a pure function of the coordinates and WORLD_SEED, so every player sees the same land
- * and none of it is stored. Never change WORLD_SEED or the terrain maths: villages already stand on
- * that land.
+ * The grid lies over real land (see world.geography): the heart is Kamianets, and rivers, hills and
+ * woods follow Podillia as it was around 1300–1400. Terrain is a pure function of the coordinates,
+ * WORLD_SEED and that geography, so every player sees the same land and none of it is stored.
+ * Never change WORLD_SEED or villageSpot: villages already stand on their spots.
  *
  * The world grows by quarter. Each quarter places its villages on its own widening rings, and its
  * explored area reaches just past its newest ring. A busy north-west pushes its frontier out while a
@@ -72,22 +76,47 @@ export function isExplored(x: number, y: number, counts: WorldCounts): boolean {
 	return Math.abs(x) <= reach && Math.abs(y) <= reach;
 }
 
+/** How strongly the real land pulls each resource, on top of its own noise field. */
+const GEO_PULL: Record<ResourceId, (geo: ReturnType<typeof geoAt>) => number> = {
+	wood: (geo) => geo.forest * 0.22,
+	stone: (geo) => geo.rock * 0.24,
+	iron: (geo) => geo.forest * 0.04,
+	// Ponds are rare: the rivers carry the water.
+	water: () => -0.1,
+	grain: (geo) => geo.field * 0.12,
+	clay: (geo) => geo.floodplain * 0.2,
+};
+
 /**
- * What covers a tile. Each resource has its own noise field, tilted toward the resources its
- * quarter is known for (the same leanings as farms), and the strongest field wins.
+ * What covers a tile. Rivers are water. Elsewhere each resource has its own noise field, pulled
+ * toward the land it belongs to (woods on slopes, stone on the Tovtry, clay by the rivers) and
+ * tilted toward the resources its quarter is known for (the same leanings as farms). The strongest
+ * field wins.
  */
 export function terrainAt(x: number, y: number): WorldTerrain {
 	if (Math.max(Math.abs(x), Math.abs(y)) <= WORLD_HEART) {
 		return x === 0 && y === 0 ? 'heart' : 'grass';
 	}
 
-	const [vertical, horizontal] = quadrantOf(x, y).split('-') as ['north' | 'south', 'west' | 'east'];
+	const geo = geoAt(x, y);
+
+	if (geo.riverDistance < geo.riverWidth + 0.25 && !nearCity(x, y)) {
+		return 'water';
+	}
+
+	const [vertical, horizontal] = quadrantOf(x, y).split('-') as [
+		'north' | 'south',
+		'west' | 'east',
+	];
 	let best: WorldTerrain = 'grass';
 	let bestValue = FEATURE_THRESHOLD;
 
 	RESOURCES.forEach(({ id }, i) => {
 		const bias = (REGION_BIAS[vertical][id] ?? 0) + (REGION_BIAS[horizontal][id] ?? 0);
-		const value = _noise(x / NOISE_SCALE, y / NOISE_SCALE, WORLD_SEED + i * 1013) + bias * 0.12;
+		const value =
+			_noise(x / NOISE_SCALE, y / NOISE_SCALE, WORLD_SEED + i * 1013) +
+			bias * 0.12 +
+			GEO_PULL[id](geo);
 
 		if (value > bestValue) {
 			best = id;
@@ -96,6 +125,41 @@ export function terrainAt(x: number, y: number): WorldTerrain {
 	});
 
 	return best;
+}
+
+/** True where a lord may found a village: dry land, off the river banks and away from towns. */
+export function isSettleable(x: number, y: number): boolean {
+	return terrainAt(x, y) !== 'water' && geoAt(x, y).riverDistance > 0.75 && !nearCity(x, y);
+}
+
+/**
+ * Where the quarter's `index`-th village is founded: its villageSpot, or, when that falls in a river
+ * or next to a town, the nearest good tile inside the same cell. Cells never overlap, so two villages
+ * still never share a tile, and the index stays the quarter's count as firestore.rules expect.
+ */
+export function settleSpot(region: RegionId, index: number): Point {
+	const spot = villageSpot(region, index);
+
+	if (isSettleable(spot.x, spot.y)) {
+		return spot;
+	}
+
+	const { i, j } = _cell(index);
+	const [sx, sy] = SIGN[region];
+	const cell: Point[] = [];
+
+	for (let dy = 0; dy < WORLD_SPACING; dy++) {
+		for (let dx = 0; dx < WORLD_SPACING; dx++) {
+			cell.push({
+				x: sx * (WORLD_HEART + 1 + i * WORLD_SPACING + dx),
+				y: sy * (WORLD_HEART + 1 + j * WORLD_SPACING + dy),
+			});
+		}
+	}
+
+	const near = (p: Point) => Math.abs(p.x - spot.x) + Math.abs(p.y - spot.y);
+
+	return cell.filter((p) => isSettleable(p.x, p.y)).sort((a, b) => near(a) - near(b))[0] ?? spot;
 }
 
 /** A stable 0–1 number per tile, for small decoration choices. */
@@ -121,34 +185,4 @@ function _cell(index: number): { i: number; j: number } {
 	cells.sort((a, b) => a.i * a.i + a.j * a.j - (b.i * b.i + b.j * b.j) || a.i - b.i);
 
 	return cells[index - ring * ring]!;
-}
-
-/** Smooth value noise in 0–1. */
-function _noise(fx: number, fy: number, seed: number): number {
-	const x0 = Math.floor(fx);
-	const y0 = Math.floor(fy);
-	const tx = _smooth(fx - x0);
-	const ty = _smooth(fy - y0);
-	const top = _lerp(_hash(x0, y0, seed), _hash(x0 + 1, y0, seed), tx);
-	const bottom = _lerp(_hash(x0, y0 + 1, seed), _hash(x0 + 1, y0 + 1, seed), tx);
-
-	return _lerp(top, bottom, ty);
-}
-
-/** Integer hash of a tile to 0–1, identical in every browser. */
-function _hash(x: number, y: number, seed: number): number {
-	let h = seed ^ Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1);
-	h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-	h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-	h ^= h >>> 16;
-
-	return (h >>> 0) / 4294967296;
-}
-
-function _smooth(t: number): number {
-	return t * t * (3 - 2 * t);
-}
-
-function _lerp(a: number, b: number, t: number): number {
-	return a + (b - a) * t;
 }

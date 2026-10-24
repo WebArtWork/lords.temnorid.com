@@ -1,80 +1,145 @@
 <header class="t-bar t-rule-b relative z-50">
 	<div
-		class="mx-auto flex min-h-16 w-full max-w-[var(--container)] items-center justify-between overflow-visible px-4 py-3 sm:px-6"
+		class="flex min-h-16 w-full flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-visible px-4 py-3 sm:px-6 lg:px-8"
 	>
+		<!-- Signed in, the wordmark opens the world; signed out, the sign-in page. -->
 		<a
-			[translate]="{ ariaLabel: 'Перейти на головну сторінку' }"
+			[translate]="{ ariaLabel: user() ? 'Відкрити світ' : 'Перейти на головну сторінку' }"
 			class="theme-focus t-wordmark rounded-md text-xl sm:text-2xl"
-			routerLink="/"
+			[routerLink]="user() ? '/world' : '/'"
 		>
-			<span translate>Темнорід: Лорди</span>
+			<span translate>Лорди</span>
 		</a>
 
-		<div class="flex items-center gap-2">
-			<div
-				class="relative flex items-center gap-1 rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-sm)]"
+		@if (user(); as user) {
+			<nav
+				class="order-last flex w-full gap-2 md:order-none md:w-auto md:flex-1"
+				[translate]="{ ariaLabel: 'Володіння лорда' }"
 			>
-				<button
-					class="theme-interactive theme-focus inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
-					[attr.aria-label]="languageCycleLabel()"
-					(click)="nextLanguage()"
-					type="button"
+				@for (place of places; track place.path) {
+					<a
+						class="topbar-place theme-interactive theme-focus inline-flex min-h-11 items-center gap-2 rounded-full border border-transparent px-4 font-semibold text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
+						[routerLink]="place.path"
+						routerLinkActive="topbar-place--active"
+						ariaCurrentWhenActive="page"
+					>
+						<span class="material-symbols-outlined text-[20px]" aria-hidden="true">{{
+							place.icon
+						}}</span>
+						<span [translate]="place.label">{{ place.label }}</span>
+					</a>
+				}
+			</nav>
+
+			@if (resources().length) {
+				<ul
+					class="topbar-resources order-last flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:order-none md:w-auto"
+					[attr.aria-label]="resourcesLabel()"
 				>
-					<img
-						class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
-						[alt]="currentLanguage().nativeName"
-						[ngSrc]="currentLanguage().flagSrc"
-						width="28"
-						height="20"
-					/>
-				</button>
+					@for (resource of resources(); track resource.id) {
+						<li class="flex items-center gap-1" [title]="resource.label">
+							<span
+								class="material-symbols-outlined topbar-resource__icon"
+								[style.color]="resource.color"
+								aria-hidden="true"
+								>{{ resource.icon }}</span
+							>
+							<span class="sr-only">{{ resource.label }}:</span>
+							<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+								resource.count
+							}}</span>
+						</li>
+					}
+				</ul>
+			}
+
+			<a
+				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 items-center gap-3 rounded-full py-0.5 pl-0.5 pr-0.5 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
+				[attr.aria-label]="profileLabel() + (playerName() ? ': ' + playerName() : '')"
+				routerLink="/profile"
+				routerLinkActive="topbar-profile--active"
+				ariaCurrentWhenActive="page"
+			>
+				@if (playerName()) {
+					<span
+						class="hidden max-w-[12rem] truncate font-semibold sm:inline text-[var(--c-text-strong)]"
+						>{{ playerName() }}</span
+					>
+				}
+				<app-avatar
+					class="overflow-hidden rounded-full border border-[var(--c-border)]"
+					[photoUrl]="user.photoURL"
+					[name]="user.displayName"
+					[size]="40"
+				/>
+			</a>
+		} @else {
+			<div class="flex items-center gap-2">
+				<div
+					class="relative flex items-center gap-1 rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-sm)]"
+				>
+					<button
+						class="theme-interactive theme-focus inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
+						[attr.aria-label]="languageCycleLabel()"
+						(click)="nextLanguage()"
+						type="button"
+					>
+						<img
+							class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
+							[alt]="currentLanguage().nativeName"
+							[ngSrc]="currentLanguage().flagSrc"
+							width="28"
+							height="20"
+						/>
+					</button>
+
+					<button
+						class="theme-interactive theme-focus inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
+						[attr.aria-expanded]="languageMenuOpen()"
+						[attr.aria-label]="languageMenuLabel()"
+						(click)="toggleLanguageMenu()"
+						type="button"
+					>
+						<span class="material-symbols-outlined text-[20px]" aria-hidden="true">
+							arrow_drop_down
+						</span>
+					</button>
+
+					@if (languageMenuOpen()) {
+						<div
+							class="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-48 overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-md)]"
+						>
+							@for (language of languages(); track language.code) {
+								<button
+									class="theme-interactive theme-focus flex w-full items-center gap-3 rounded-[calc(var(--radius-btn)-0.25rem)] px-3 py-2 text-left text-sm text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
+									(click)="setLanguage(language)"
+									type="button"
+								>
+									<img
+										class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
+										[alt]="language.nativeName"
+										[ngSrc]="language.flagSrc"
+										width="28"
+										height="20"
+									/>
+									<span>{{ language.nativeName }}</span>
+								</button>
+							}
+						</div>
+					}
+				</div>
 
 				<button
-					class="theme-interactive theme-focus inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
-					[attr.aria-expanded]="languageMenuOpen()"
-					[attr.aria-label]="languageMenuLabel()"
-					(click)="toggleLanguageMenu()"
+					class="theme-interactive theme-focus inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
+					[attr.aria-label]="toggleLabel()"
+					(click)="toggleMode()"
 					type="button"
 				>
-					<span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-						arrow_drop_down
+					<span class="material-symbols-outlined text-[22px]" aria-hidden="true">
+						{{ toggleIcon() }}
 					</span>
 				</button>
-
-				@if (languageMenuOpen()) {
-					<div
-						class="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-48 overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-md)]"
-					>
-						@for (language of languages(); track language.code) {
-							<button
-								class="theme-interactive theme-focus flex w-full items-center gap-3 rounded-[calc(var(--radius-btn)-0.25rem)] px-3 py-2 text-left text-sm text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
-								(click)="setLanguage(language)"
-								type="button"
-							>
-								<img
-									class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
-									[alt]="language.nativeName"
-									[ngSrc]="language.flagSrc"
-									width="28"
-									height="20"
-								/>
-								<span>{{ language.nativeName }}</span>
-							</button>
-						}
-					</div>
-				}
 			</div>
-
-			<button
-				class="theme-interactive theme-focus inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
-				[attr.aria-label]="toggleLabel()"
-				(click)="toggleMode()"
-				type="button"
-			>
-				<span class="material-symbols-outlined text-[22px]" aria-hidden="true">
-					{{ toggleIcon() }}
-				</span>
-			</button>
-		</div>
+		}
 	</div>
 </header>

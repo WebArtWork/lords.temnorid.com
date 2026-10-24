@@ -21,6 +21,7 @@ import {
 } from '../../feature/progress/progress.service';
 import { REGIONS, WORLD_MAP_IMAGE } from '../../feature/region/region.data';
 import { RegionId } from '../../feature/region/region.interface';
+import { WorldOverviewComponent } from '../../feature/world/world-overview.component';
 
 type OnboardingStep = 'element' | 'region' | 'lord';
 
@@ -31,7 +32,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
  * the first or second name and reroll the other, or type their own.
  */
 @Component({
-	imports: [TranslateDirective],
+	imports: [TranslateDirective, WorldOverviewComponent],
 	template: `
 		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
 			@if (loading()) {
@@ -126,9 +127,12 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 							<fieldset>
 								<legend class="sr-only" translate>Частина світу</legend>
 								<div
-									class="world-map grid aspect-square w-full max-w-[32rem] grid-cols-2 gap-2 p-2"
+									class="world-map relative grid aspect-square w-full max-w-[32rem] grid-cols-2 gap-2 overflow-hidden p-2"
 									[style.background-image]="mapImage ? 'url(' + mapImage + ')' : null"
 								>
+									@if (!mapImage) {
+										<app-world-overview class="absolute inset-0" />
+									}
 									@for (region of regions; track region.id) {
 										<label
 											class="choice-card region-cell flex cursor-pointer flex-col items-center justify-center gap-2 text-center"
@@ -306,7 +310,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 			visibility: visible;
 		}
 
-		/* The map: a parchment panel until the world map image exists. */
+		/* The map: the drawn overview of the land, or the world map image once it exists. */
 		.world-map {
 			border: 1px solid var(--c-border);
 			border-radius: var(--t-radius-card);
@@ -316,10 +320,19 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 		}
 
 		.region-cell {
+			position: relative;
 			border: 1px solid var(--c-border);
 			border-radius: var(--t-radius);
-			background: color-mix(in srgb, var(--c-bg-secondary) 80%, transparent);
+			background: color-mix(in srgb, var(--c-bg-secondary) 30%, transparent);
 			padding: 0.75rem;
+		}
+
+		/* The label sits on its own plate so it reads over the map. */
+		.region-cell .t-item,
+		.region-cell__icon {
+			border-radius: var(--t-radius);
+			background: color-mix(in srgb, var(--c-bg-secondary) 88%, transparent);
+			padding: 0 0.5rem;
 		}
 
 		.region-cell__icon {

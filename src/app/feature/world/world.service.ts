@@ -12,7 +12,7 @@ import {
 import { FirebaseService } from '../firebase/firebase.service';
 import { GameState } from '../game/game.service';
 import { REGIONS } from '../region/region.data';
-import { villageSpot } from './world.generator';
+import { settleSpot } from './world.generator';
 import { WorldCounts, WorldState, WorldVillage } from './world.interface';
 
 /** Enough for the early world. Past this, load villages by area instead of all at once. */
@@ -37,6 +37,13 @@ export class WorldService {
 		}
 
 		return { counts, villages, mine };
+	}
+
+	/** The lord's village on the map, or null before their first visit to the world. Read only. */
+	async mine(uid: string): Promise<WorldVillage | null> {
+		const snapshot = await getDoc(doc(this._firebase.db, 'lordsVillages', uid));
+
+		return snapshot.exists() ? (snapshot.data() as WorldVillage) : null;
 	}
 
 	/**
@@ -64,7 +71,7 @@ export class WorldService {
 			}
 
 			const index = (counts.data()?.[game.region] as number | undefined) ?? 0;
-			const spot = villageSpot(game.region, index);
+			const spot = settleSpot(game.region, index);
 			const village: WorldVillage = {
 				uid: game.uid,
 				lordName: game.lordName,
