@@ -8,6 +8,7 @@ import type { AppLanguage } from '../../../environments/environment.prod';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
 import { nowSignal } from '../../feature/building/building.timing';
 import { capacity, productionPerHour, stockAt } from '../../feature/economy/economy';
+import { villageStrength } from '../../feature/military/military';
 import { RESOURCES } from '../../feature/resource/resource.data';
 import { SessionService } from '../../feature/session/session.service';
 import { PLACES } from './places';
@@ -60,6 +61,32 @@ export class TopbarComponent {
 				title: `${label}: ${count} / ${cap[resource.id]}, +${perHour[resource.id]} ${t('за годину')}`,
 			};
 		});
+	});
+	/** Attack and defense of the village, shown under each other beside the resources. */
+	protected readonly strength = computed(() => {
+		this.activeLanguage();
+		const game = this._session.game();
+
+		if (!game) {
+			return null;
+		}
+
+		const t = (text: string) => this._translateService.translate(text)();
+		const { attack, defense, wallBonus } = villageStrength(
+			game.village.buildings ?? {},
+			this._now(),
+		);
+		const wall = wallBonus ? ` (${t('мур')} +${Math.round(wallBonus * 100)}%)` : '';
+
+		return {
+			label: t('Сила поселення'),
+			attack,
+			defense,
+			attackLabel: t('Сила нападу'),
+			defenseLabel: t('Сила захисту'),
+			attackTitle: `${t('Сила нападу')}: ${attack}. ${t("Військо з'явиться згодом.")}`,
+			defenseTitle: `${t('Сила захисту')}: ${defense}${wall}`,
+		};
 	});
 	protected readonly resourcesLabel = computed(() => {
 		this.activeLanguage();

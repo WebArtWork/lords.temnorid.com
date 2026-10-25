@@ -57,6 +57,32 @@
 				</ul>
 			}
 
+			@if (strength(); as strength) {
+				<ul
+					class="topbar-strength grid shrink-0 gap-y-0.5"
+					[attr.aria-label]="strength.label"
+				>
+					<li class="flex items-center gap-1" [title]="strength.attackTitle">
+						<span
+							class="material-symbols-outlined topbar-resource__icon topbar-strength__attack"
+							aria-hidden="true"
+							>swords</span
+						>
+						<span class="sr-only">{{ strength.attackLabel }}:</span>
+						<span class="font-semibold tabular-nums">{{ strength.attack }}</span>
+					</li>
+					<li class="flex items-center gap-1" [title]="strength.defenseTitle">
+						<span
+							class="material-symbols-outlined topbar-resource__icon topbar-strength__defense"
+							aria-hidden="true"
+							>shield</span
+						>
+						<span class="sr-only">{{ strength.defenseLabel }}:</span>
+						<span class="font-semibold tabular-nums">{{ strength.defense }}</span>
+					</li>
+				</ul>
+			}
+
 			<a
 				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full py-0.5 pl-2 pr-0.5 sm:gap-3 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
 				[attr.aria-label]="profileLabel() + (playerName() ? ': ' + playerName() : '')"
