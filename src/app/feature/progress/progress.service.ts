@@ -23,7 +23,7 @@ export interface LordsProgress {
 	/** The lord's stores at one moment; see economy.ts. */
 	stock?: StockSave;
 	/** The game-made faction the lord stands with, chosen on the profile page. */
-	faction?: FactionId;
+	faction?: FactionId | null;
 	/** The lord's hero, created the first time the game opens. */
 	hero?: HeroSave;
 	/** Generated maps, saved the first time the game opens and never regenerated. */
@@ -85,7 +85,7 @@ export class ProgressService {
 		);
 	}
 
-	async setFaction(uid: string, faction: FactionId) {
+	async setFaction(uid: string, faction: FactionId | null) {
 		await this._merge(uid, { faction });
 	}
 

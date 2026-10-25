@@ -321,6 +321,13 @@ export class GameService {
 		this._update({ ...game, faction });
 	}
 
+	async leaveFaction(): Promise<void> {
+		const game = this._requireGame();
+
+		await this._progress.setFaction(game.uid, null);
+		this._update({ ...game, faction: null });
+	}
+
 	async signOut() {
 		this._cache = null;
 		this._loading = null;

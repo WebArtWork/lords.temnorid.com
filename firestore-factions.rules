@@ -1,0 +1,101 @@
+// Proposed Firestore rules for faction elections in Temnorid: Lords.
+//
+// NOT ACTIVE. To turn elections on:
+//   1. Paste the block below into temnorid.com/firestore.rules, inside
+//      `match /databases/{database}/documents { ... }`, right after the lordsVillages rules.
+//      It uses the helpers signedIn(), isUser() and requiredText() already defined there.
+//   2. Deploy from temnorid.com:  firebase deploy --only firestore:rules
+//   3. Set ELECTIONS_LIVE = true in src/app/feature/faction/election.ts and push.
+//
+//   lordsMembers/{uid}                     which game-made faction a lord stands with
+//   lordsFactions/{faction}                the faction's latest election: { election, startedAt }
+//   lordsElections/{id}                    { faction, startedAt }; the vote runs 24 hours
+//   lordsElections/{id}/candidates/{uid}   one candidacy per lord
+//   lordsElections/{id}/votes/{uid}        one vote per lord, changeable while the vote runs
+// Only lords who joined the faction before a vote opened may stand or vote in it, so nobody can
+// switch factions to vote twice. Counting votes and the president's one-week term are worked out by
+// the game; the rules keep the inputs honest.
+
+    function lordsFaction(faction) {
+      return faction in ['village-of-names', 'ember-keepers', 'river-ferrymen', 'ash-wardens'];
+    }
+
+    function lordsMember(uid) {
+      return /databases/$(database)/documents/lordsMembers/$(uid);
+    }
+
+    function lordsElection(id) {
+      return /databases/$(database)/documents/lordsElections/$(id);
+    }
+
+    function lordsInFaction(faction) {
+      return exists(lordsMember(request.auth.uid))
+        && get(lordsMember(request.auth.uid)).data.faction == faction;
+    }
+
+    // getAfter, so a candidacy filed in the same batch that opens the vote is checked too.
+    function lordsVoteOpen(id) {
+      return request.time < getAfter(lordsElection(id)).data.startedAt + duration.value(24, 'h');
+    }
+
+    function lordsMayTakePart(id) {
+      let vote = getAfter(lordsElection(id)).data;
+      return lordsInFaction(vote.faction)
+        && get(lordsMember(request.auth.uid)).data.joinedAt < vote.startedAt;
+    }
+
+    match /lordsMembers/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isUser(uid)
+        && request.resource.data.keys().hasOnly(['uid', 'faction', 'lordName', 'joinedAt'])
+        && request.resource.data.uid == uid
+        && lordsFaction(request.resource.data.faction)
+        && requiredText(request.resource.data.lordName, 40)
+        && request.resource.data.joinedAt == request.time;
+      allow delete: if isUser(uid);
+    }
+
+    // A member opens a vote when none is running, in the same batch as the new election.
+    match /lordsFactions/{faction} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && lordsFaction(faction)
+        && lordsInFaction(faction)
+        && request.resource.data.keys().hasOnly(['election', 'startedAt'])
+        && request.resource.data.startedAt == request.time
+        && (resource == null || resource.data.startedAt + duration.value(24, 'h') <= request.time)
+        && getAfter(lordsElection(request.resource.data.election)).data.faction == faction;
+      allow delete: if false;
+    }
+
+    match /lordsElections/{election} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['faction', 'startedAt'])
+        && lordsFaction(request.resource.data.faction)
+        && request.resource.data.startedAt == request.time
+        && getAfter(/databases/$(database)/documents/lordsFactions/$(request.resource.data.faction)).data.election == election;
+      allow update, delete: if false;
+
+      match /candidates/{uid} {
+        allow read: if signedIn();
+        allow create: if isUser(uid)
+          && request.resource.data.keys().hasOnly(['lordName', 'at'])
+          && requiredText(request.resource.data.lordName, 40)
+          && request.resource.data.at == request.time
+          && lordsVoteOpen(election)
+          && lordsMayTakePart(election);
+        allow update, delete: if false;
+      }
+
+      match /votes/{uid} {
+        allow read: if signedIn();
+        allow create, update: if isUser(uid)
+          && request.resource.data.keys().hasOnly(['candidate', 'at'])
+          && request.resource.data.at == request.time
+          && exists(/databases/$(database)/documents/lordsElections/$(election)/candidates/$(request.resource.data.candidate))
+          && lordsVoteOpen(election)
+          && lordsMayTakePart(election);
+        allow delete: if false;
+      }
+    }

@@ -5,7 +5,10 @@ import { ELEMENTS } from '../../feature/element/element.data';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { FactionPickerComponent } from '../../feature/faction/faction-picker.component';
-import { FactionId } from '../../feature/faction/faction.data';
+import { ELECTIONS_LIVE } from '../../feature/faction/election';
+import { FactionElectionComponent } from '../../feature/faction/faction-election.component';
+import { FACTION_BY_ID, FactionId } from '../../feature/faction/faction.data';
+import { FactionService } from '../../feature/faction/faction.service';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
 import { SettingsComponent } from '../../feature/profile/settings.component';
 import { REGIONS } from '../../feature/region/region.data';
@@ -16,6 +19,7 @@ import { WorldService } from '../../feature/world/world.service';
 @Component({
 	imports: [
 		AvatarComponent,
+		FactionElectionComponent,
 		FactionPickerComponent,
 		RouterLink,
 		SettingsComponent,
@@ -96,15 +100,105 @@ import { WorldService } from '../../feature/world/world.service';
 					@if (game()) {
 						<section class="t-card md:col-span-2" aria-labelledby="profile-faction">
 							<h2 id="profile-faction" class="t-item" translate>Фракція</h2>
-							<p class="mt-1 text-sm text-[var(--c-text-muted)]" translate>
-								Оберіть, з ким стоїте. Змінити вибір можна будь-коли.
-							</p>
-							<app-faction-picker
-								class="mt-4 block"
-								[chosen]="faction()"
-								[busy]="joining()"
-								(pick)="joinFaction($event)"
-							/>
+							@if (chosenFaction(); as faction) {
+								<div class="faction-chosen mt-4" [style.--faction]="faction.color">
+									<div class="flex items-center gap-3">
+										<span
+											class="faction-chosen__icon material-symbols-outlined"
+											aria-hidden="true"
+											>{{ faction.icon }}</span
+										>
+										<span
+											class="min-w-0 flex-1 font-semibold text-[var(--c-text-strong)]"
+											[translate]="faction.name"
+											>{{ faction.name }}</span
+										>
+									</div>
+									<p
+										class="mt-2 text-sm leading-6 text-[var(--c-text-muted)]"
+										[translate]="faction.summary"
+									>
+										{{ faction.summary }}
+									</p>
+									<p class="mt-2 text-sm leading-6">
+										<span class="text-[var(--c-text-muted)]" translate
+											>Мета</span
+										>:
+										<span [translate]="faction.goal">{{ faction.goal }}</span>
+									</p>
+								</div>
+
+								@if (electionsLive) {
+									<app-faction-election
+										class="mt-6 block"
+										[faction]="faction.id"
+										[uid]="game()!.uid"
+										[lordName]="game()!.lordName"
+									/>
+								} @else {
+									<p
+										class="mt-6 flex items-center gap-2 text-sm text-[var(--c-text-muted)]"
+									>
+										<span
+											class="material-symbols-outlined text-[20px]"
+											aria-hidden="true"
+											>how_to_vote</span
+										>
+										<span translate
+											>Вибори президента фракції з'являться найближчим
+											часом.</span
+										>
+									</p>
+								}
+
+								<div class="mt-6 flex flex-wrap items-center gap-3">
+									@if (confirmLeave()) {
+										<span class="text-sm" translate
+											>Точно покинути фракцію?</span
+										>
+										<button
+											class="btn"
+											[disabled]="joining()"
+											(click)="leaveFaction()"
+											type="button"
+											translate
+										>
+											Так, покинути
+										</button>
+										<button
+											class="btn"
+											(click)="confirmLeave.set(false)"
+											type="button"
+											translate
+										>
+											Ні
+										</button>
+									} @else {
+										<button
+											class="btn"
+											(click)="confirmLeave.set(true)"
+											type="button"
+										>
+											<span
+												class="material-symbols-outlined"
+												aria-hidden="true"
+												>logout</span
+											>
+											<span translate>Покинути фракцію</span>
+										</button>
+									}
+								</div>
+							} @else {
+								<p class="mt-1 text-sm text-[var(--c-text-muted)]" translate>
+									Оберіть, з ким стоїте. Пізніше фракцію можна покинути.
+								</p>
+								<app-faction-picker
+									class="mt-4 block"
+									[chosen]="faction()"
+									[busy]="joining()"
+									(pick)="joinFaction($event)"
+								/>
+							}
 							@if (factionFailed()) {
 								<p
 									class="mt-3 text-sm text-[var(--c-secondary)]"
@@ -151,6 +245,19 @@ import { WorldService } from '../../feature/world/world.service';
 		</section>
 	`,
 	styles: `
+		.faction-chosen {
+			border: 1px solid var(--faction);
+			border-left-width: 4px;
+			border-radius: var(--t-radius);
+			background: color-mix(in srgb, var(--faction) 12%, transparent);
+			padding: 0.875rem;
+		}
+
+		.faction-chosen__icon {
+			color: var(--faction);
+			font-size: 28px;
+		}
+
 		.profile-facts {
 			display: grid;
 			grid-template-columns: max-content 1fr;
@@ -178,6 +285,7 @@ export class ProfileComponent {
 	private readonly _game = inject(GameService);
 	private readonly _world = inject(WorldService);
 	private readonly _router = inject(Router);
+	private readonly _factions = inject(FactionService);
 
 	protected readonly user = this._firebase.user;
 	protected readonly game = signal<GameState | null>(null);
@@ -185,6 +293,13 @@ export class ProfileComponent {
 	protected readonly loading = signal(true);
 	/** From GameService, so a new choice shows at once. */
 	protected readonly faction = computed(() => this._game.game()?.faction ?? null);
+	protected readonly chosenFaction = computed(() => {
+		const faction = this.faction();
+
+		return faction ? FACTION_BY_ID[faction] : null;
+	});
+	protected readonly confirmLeave = signal(false);
+	protected readonly electionsLive = ELECTIONS_LIVE;
 	protected readonly joining = signal(false);
 	protected readonly factionFailed = signal(false);
 	protected readonly error = signal(false);
@@ -209,11 +324,33 @@ export class ProfileComponent {
 	}
 
 	protected async joinFaction(faction: FactionId) {
+		await this._changeFaction(async (game) => {
+			await this._game.chooseFaction(faction);
+			// The shared member list only feeds elections; joining must not hang on it.
+			this._factions.join(game.uid, faction, game.lordName).catch((e) => console.error(e));
+		});
+	}
+
+	protected async leaveFaction() {
+		await this._changeFaction(async (game) => {
+			await this._game.leaveFaction();
+			this._factions.leave(game.uid).catch((e) => console.error(e));
+		});
+		this.confirmLeave.set(false);
+	}
+
+	private async _changeFaction(change: (game: GameState) => Promise<void>) {
+		const game = this.game();
+
+		if (!game) {
+			return;
+		}
+
 		this.joining.set(true);
 		this.factionFailed.set(false);
 
 		try {
-			await this._game.chooseFaction(faction);
+			await change(game);
 		} catch (error) {
 			console.error(error);
 			this.factionFailed.set(true);
@@ -234,6 +371,13 @@ export class ProfileComponent {
 			this.game.set(game);
 
 			if (game) {
+				// Lords who chose a faction before the shared list existed get listed now.
+				if (game.faction) {
+					this._factions
+						.ensureMember(game.uid, game.faction, game.lordName)
+						.catch((error) => console.error(error));
+				}
+
 				this.village.set(await this._world.mine(game.uid));
 			}
 		} catch (error) {
