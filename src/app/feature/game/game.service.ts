@@ -2,7 +2,13 @@ import { inject, Service, signal } from '@angular/core';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { costAtLevel } from '../building/building.cost';
 import { BuildingId, Construction, VillageBuilding } from '../building/building.interface';
-import { buildersBusyUntil, buildSeconds, hallLevel, levelAt } from '../building/building.timing';
+import {
+	buildersBusyUntil,
+	buildSeconds,
+	hallLevel,
+	levelAt,
+	runningUpgrade,
+} from '../building/building.timing';
 import {
 	Amounts,
 	PLOT_COST,
@@ -116,6 +122,10 @@ export class GameService {
 
 	/** Starts raising a building on a free village place. Level 1 is ready once its time runs out. */
 	async build(slot: number, type: BuildingId): Promise<void> {
+		if (this._cache?.village.buildings?.[slot]) {
+			throw new Error('Something already stands on this place.');
+		}
+
 		await this._construct(slot, { type, level: 0 });
 	}
 
@@ -127,6 +137,10 @@ export class GameService {
 			throw new Error('Nothing stands on this place.');
 		}
 
+		if (runningUpgrade(building, Date.now())) {
+			throw new Error('This building is already being raised.');
+		}
+
 		await this._construct(slot, { type: building.type, level: levelAt(building, Date.now()) });
 	}
 
@@ -136,6 +150,10 @@ export class GameService {
 		const now = Date.now();
 		const current = game.farm.levels?.[plot];
 		const level = current ? levelAt(current, now) : 0;
+
+		if (current && runningUpgrade(current, now)) {
+			throw new Error('This plot is already being worked.');
+		}
 
 		if (level >= PLOT_MAX_LEVEL) {
 			throw new Error('The plot is at its highest level.');
@@ -188,7 +206,7 @@ export class GameService {
 
 	/**
 	 * Checks the builders are free and the stores can pay, then returns the started work and the
-	 * stores after paying. One construction runs at a time in a village, buildings and plots alike.
+	 * stores after paying. A village has BUILDERS builders, shared by buildings and plots.
 	 */
 	private _startWork(
 		game: GameState,

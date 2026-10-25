@@ -45,20 +45,41 @@ export function hallLevel(buildings: Record<string, VillageBuilding>, now: numbe
 	return hall ? levelAt(hall, now) : 0;
 }
 
+/** How many constructions a village runs at once, buildings and farm plots together. */
+export const BUILDERS = 5;
+
+/** Construction still running at `now`, buildings and farm plots together. */
+export function runningWork(
+	buildings: Record<string, Construction>,
+	now: number,
+	plots: Record<string, Construction> = {},
+): number[] {
+	return [...Object.values(buildings), ...Object.values(plots)]
+		.map((work) => runningUpgrade(work, now)?.endsAt ?? 0)
+		.filter((endsAt) => endsAt > now);
+}
+
+/** Builders not working at `now`, out of BUILDERS. */
+export function freeBuilders(
+	buildings: Record<string, Construction>,
+	now: number,
+	plots: Record<string, Construction> = {},
+): number {
+	return Math.max(0, BUILDERS - runningWork(buildings, now, plots).length);
+}
+
 /**
- * When the village's builders are free again. Like Travian, a village raises one thing at a time,
- * building or farm plot alike; null when nothing is being built.
+ * When a builder frees up, if all BUILDERS are busy; null while one is free. Buildings and farm
+ * plots share the builders.
  */
 export function buildersBusyUntil(
 	buildings: Record<string, Construction>,
 	now: number,
 	plots: Record<string, Construction> = {},
 ): number | null {
-	const ends = [...Object.values(buildings), ...Object.values(plots)]
-		.map((building) => runningUpgrade(building, now)?.endsAt ?? 0)
-		.filter((endsAt) => endsAt > now);
+	const ends = runningWork(buildings, now, plots);
 
-	return ends.length ? Math.max(...ends) : null;
+	return ends.length >= BUILDERS ? Math.min(...ends) : null;
 }
 
 /** `1:05:09` or `4:09`: a countdown as people read clocks. */

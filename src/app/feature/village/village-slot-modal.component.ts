@@ -3,9 +3,11 @@ import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ng
 import { BUILDING_BY_ID, BUILDING_CATEGORIES, BUILDINGS } from '../building/building.data';
 import { BuildingId, BuildingType } from '../building/building.interface';
 import {
+	BUILDERS,
 	buildersBusyUntil,
 	buildSeconds,
 	formatDuration,
+	freeBuilders,
 	hallLevel,
 	levelAt,
 	nowSignal,
@@ -31,6 +33,15 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 					<span translate>Що звести тут?</span>
 				}
 			</h2>
+			<p class="mt-2 flex items-center gap-1.5 text-sm text-[var(--c-text-muted)]">
+				<span class="material-symbols-outlined text-[18px]" aria-hidden="true"
+					>engineering</span
+				>
+				<span translate>Вільних будівельників</span>:
+				<span class="font-semibold tabular-nums text-[var(--c-text-strong)]"
+					>{{ builders() }} / {{ totalBuilders }}</span
+				>
+			</p>
 
 			@for (group of groups(); track group.id) {
 				<h3 class="mt-6 t-item" [translate]="group.name">{{ group.name }}</h3>
@@ -160,6 +171,11 @@ export class VillageSlotModalComponent {
 	protected readonly busy = signal<BuildingId | null>(null);
 	protected readonly error = signal(false);
 	private readonly _now = nowSignal();
+
+	protected readonly totalBuilders = BUILDERS;
+	protected readonly builders = computed(() =>
+		freeBuilders(this.game.village.buildings ?? {}, this._now(), this.game.farm.levels ?? {}),
+	);
 
 	protected readonly labels = computed(() => {
 		this._languageService.language();
