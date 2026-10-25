@@ -3,6 +3,9 @@ import { computed, effect, inject, Injector, PLATFORM_ID, Service, signal } from
 import type { FirebaseService } from '../firebase/firebase.service';
 import type { GameService } from '../game/game.service';
 
+/** The longest the splash stays up while the session or game is still loading. */
+const SPLASH_TIMEOUT_MS = 10_000;
+
 /**
  * The signed-in player and their game, for chrome that is always on screen (top bar, bottom bar).
  * Firebase loads on demand, as in authGuard, so it stays out of the initial bundle.
@@ -16,6 +19,20 @@ export class SessionService {
 	readonly user = computed(() => this._firebase()?.user() ?? null);
 	/** The lord's game, once loaded. */
 	readonly game = computed(() => this._game()?.game() ?? null);
+
+	private readonly _gameSettled = signal(false);
+	private readonly _gaveUp = signal(false);
+	/**
+	 * True once we know who is here: the saved session is restored and, for a signed-in player,
+	 * their game has loaded (or failed to). Until then the app shows a splash rather than a
+	 * signed-out page. Never true on the server, so prerendered pages start on the splash too.
+	 */
+	readonly ready = computed(() => {
+		const firebase = this._firebase();
+		const known = !!firebase?.authReady() && (!this.user() || this._gameSettled());
+
+		return known || this._gaveUp();
+	});
 
 	constructor() {
 		if (!isPlatformBrowser(inject(PLATFORM_ID))) {
@@ -37,8 +54,13 @@ export class SessionService {
 			const game = this._game();
 
 			if (this.user() && game) {
-				game.load().catch((error) => console.error(error));
+				game.load()
+					.catch((error) => console.error(error))
+					.finally(() => this._gameSettled.set(true));
 			}
 		});
+
+		// Never keep the splash up forever, e.g. when Firebase cannot be reached.
+		setTimeout(() => this._gaveUp.set(true), SPLASH_TIMEOUT_MS);
 	}
 }

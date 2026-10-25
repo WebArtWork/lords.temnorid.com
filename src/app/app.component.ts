@@ -8,12 +8,14 @@ import { LanguageService } from '@wawjs/ngx-translate';
 import { environment } from '../environments/environment';
 import { ProjectSeoService } from './feature/company/project-seo.service';
 import { FooterComponent } from './layouts/footer/footer.component';
+import { SessionService } from './feature/session/session.service';
 import { BottomBarComponent } from './layouts/bottom-bar/bottom-bar.component';
+import { SplashComponent } from './layouts/splash/splash.component';
 import { TopbarComponent } from './layouts/topbar/topbar.component';
 
 @Component({
 	selector: 'app-root',
-	imports: [BottomBarComponent, FooterComponent, RouterOutlet, TopbarComponent],
+	imports: [BottomBarComponent, FooterComponent, RouterOutlet, SplashComponent, TopbarComponent],
 	template: `
 		<!--
 			Pinned to the screen, so the browser itself never scrolls: on phones 100vh is taller
@@ -35,6 +37,10 @@ import { TopbarComponent } from './layouts/topbar/topbar.component';
 			}
 			<app-bottom-bar class="shrink-0" />
 		</div>
+		<!-- Until we know who is here, so nobody sees the signed-out page flash first. -->
+		@if (!ready()) {
+			<app-splash />
+		}
 	`,
 })
 export class App {
@@ -43,6 +49,7 @@ export class App {
 	private readonly _document = inject(DOCUMENT);
 	private readonly _languageService = inject(LanguageService);
 	private readonly _router = inject(Router);
+	protected readonly ready = inject(SessionService).ready;
 	private readonly _url = toSignal(
 		this._router.events.pipe(
 			filter((event) => event instanceof NavigationEnd),
