@@ -223,6 +223,17 @@ export const BUILDINGS: BuildingType[] = [
 		requires: ['academy'],
 	},
 	{
+		id: 'arena',
+		category: 'military',
+		name: 'Арена',
+		description:
+			'Посеред поселення, де воїни змагаються й гартуються. Що вищий рівень, то швидше навчається військо.',
+		icon: 'stadium',
+		cost: { wood: 180, stone: 300, clay: 200, grain: 90 },
+		requires: ['rally-point'],
+		center: true,
+	},
+	{
 		id: 'wall',
 		category: 'military',
 		name: 'Мур',

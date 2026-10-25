@@ -21,6 +21,7 @@ export type BuildingId =
 	| 'stable'
 	| 'workshop'
 	| 'wall'
+	| 'arena'
 	| 'tavern'
 	| 'castle'
 	| 'town-hall'
@@ -43,7 +44,12 @@ export interface BuildingType {
 	requires: BuildingId[];
 	/** Warehouses, granaries and crannies can be built more than once. */
 	repeatable?: boolean;
+	/** Stands only in the middle of the village (CENTER_PLACE), and nothing else stands there. */
+	center?: boolean;
 }
+
+/** Place id of the village centre. Ordinary places are numbered from 1. */
+export const CENTER_PLACE = 0;
 
 /**
  * Something that is raised level by level over time: a building or a farm plot. `level` is the

@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, model } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
-import { VillageBuilding } from '../building/building.interface';
+import { CENTER_PLACE, VillageBuilding } from '../building/building.interface';
 import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
 import { VillageMap } from './village.interface';
@@ -64,23 +64,75 @@ import { VillageMap } from './village.interface';
 
 			<path [attr.d]="map().plaza" [attr.fill]="palette().plaza" />
 
-			<!-- The heart of the village: the first stone, or the fire everyone gathers around. -->
-			<g [attr.transform]="'translate(' + map().centre.x + ' ' + map().centre.y + ')'" aria-hidden="true">
-				@let heart = element();
-				@switch (heart) {
-					@case ('stone') {
-						<ellipse cx="0" cy="6" rx="22" ry="8" fill="rgba(0,0,0,0.18)" />
-						<path d="M-12 6 L-9 -30 L2 -40 L11 -28 L13 6 Z" [attr.fill]="palette().rock" [attr.stroke]="palette().rockShade" stroke-width="2.5" />
-						<path d="M-3 -22 L4 -22 M-3 -14 L5 -14" stroke="#e4a74a" stroke-width="2" stroke-linecap="round" />
-					}
-					@case ('fire') {
-						@for (stone of hearthStones; track $index) {
-							<circle [attr.cx]="stone.x" [attr.cy]="stone.y" r="5" [attr.fill]="palette().rock" [attr.stroke]="palette().rockShade" stroke-width="1.5" />
+			<!--
+				The village centre: a place of its own that only takes the arena. Until the arena
+				stands, it shows the heart of the village: the first stone, or the fire everyone
+				gathers around.
+			-->
+			<g
+				class="village-slot village-center"
+				[class.village-slot--selected]="selected() === center"
+				[attr.transform]="'translate(' + map().centre.x + ' ' + map().centre.y + ')'"
+				role="button"
+				tabindex="0"
+				[attr.aria-label]="slotLabel(center)"
+				[attr.aria-pressed]="selected() === center"
+				(click)="toggle(center)"
+				(keydown.enter)="toggle(center)"
+				(keydown.space)="$event.preventDefault(); toggle(center)"
+			>
+				<ellipse class="village-slot__ring" cx="0" cy="0" rx="58" ry="36" />
+				@if (buildings()[center]; as arena) {
+					@let level = levelOf(arena);
+					<ellipse cx="0" cy="10" rx="54" ry="22" fill="rgb(0 0 0 / 0.22)" />
+					@if (level) {
+						<!-- Low-poly amphitheatre: stone stands round a sand ring, with banners. -->
+						<ellipse cx="0" cy="0" rx="50" ry="30" fill="#b8ad98" stroke="#6d6556" stroke-width="2.5" />
+						<ellipse cx="0" cy="-3" rx="44" ry="25" fill="#d7ccb6" />
+						<path d="M-44 -3 A44 25 0 0 1 44 -3 L36 -3 A36 19 0 0 0 -36 -3 Z" fill="#c8bca4" />
+						<ellipse cx="0" cy="1" rx="30" ry="16" fill="#e2c98f" stroke="#a68a52" stroke-width="2" />
+						<path d="M-14 1 H14 M0 -7 V9" stroke="#c4a764" stroke-width="2" />
+						@for (flag of arenaFlags; track $index) {
+							<path [attr.d]="'M' + flag.x + ' ' + flag.y + ' v-18'" stroke="#5a3a1c" stroke-width="2" />
+							<path [attr.d]="'M' + flag.x + ' ' + (flag.y - 18) + ' l10 3 l-10 3 Z'" fill="#a8583a" />
 						}
-						<path d="M0 -26 C10 -14 12 -4 0 4 C-12 -4 -10 -14 0 -26 Z" fill="#e07a2e" />
-						<path d="M0 -14 C5 -8 6 -2 0 2 C-6 -2 -5 -8 0 -14 Z" fill="#f6c453" />
+					} @else {
+						<!-- The ring of stands is still going up. -->
+						<ellipse cx="0" cy="0" rx="50" ry="30" fill="#d8c8a2" stroke="#8a7650" stroke-width="2" stroke-dasharray="6 5" />
+						<ellipse cx="0" cy="1" rx="30" ry="16" fill="#e2c98f" />
+						<path class="village-scaffold" d="M-46 8 V-20 M46 8 V-20 M-46 -12 H-20 M20 -12 H46 M-46 8 L-20 -20 M46 8 L20 -20" />
 					}
-					@default never;
+					<circle class="village-building__badge" cx="0" cy="1" r="15" />
+					<text class="material-symbols-outlined village-building__icon" x="0" y="1">stadium</text>
+					@if (level) {
+						<g transform="translate(46 -28)">
+							<circle class="village-building__level" r="11" />
+							<text class="village-building__level-text" y="1">{{ level }}</text>
+						</g>
+					}
+					@if (timeLeft(arena); as left) {
+						<g transform="translate(0 44)">
+							<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
+							<text class="village-building__timer-text" y="1">{{ left }}</text>
+						</g>
+					}
+				} @else {
+					@let heart = element();
+					@switch (heart) {
+						@case ('stone') {
+							<ellipse cx="0" cy="6" rx="22" ry="8" fill="rgba(0,0,0,0.18)" />
+							<path d="M-12 6 L-9 -30 L2 -40 L11 -28 L13 6 Z" [attr.fill]="palette().rock" [attr.stroke]="palette().rockShade" stroke-width="2.5" />
+							<path d="M-3 -22 L4 -22 M-3 -14 L5 -14" stroke="#e4a74a" stroke-width="2" stroke-linecap="round" />
+						}
+						@case ('fire') {
+							@for (stone of hearthStones; track $index) {
+								<circle [attr.cx]="stone.x" [attr.cy]="stone.y" r="5" [attr.fill]="palette().rock" [attr.stroke]="palette().rockShade" stroke-width="1.5" />
+							}
+							<path d="M0 -26 C10 -14 12 -4 0 4 C-12 -4 -10 -14 0 -26 Z" fill="#e07a2e" />
+							<path d="M0 -14 C5 -8 6 -2 0 2 C-6 -2 -5 -8 0 -14 Z" fill="#f6c453" />
+						}
+						@default never;
+					}
 				}
 			</g>
 
@@ -276,6 +328,13 @@ export class VillageMapComponent {
 
 	protected readonly palette = computed(() => this.map().palette);
 	protected readonly planks = [-16, -6, 4, 14];
+	protected readonly center = CENTER_PLACE;
+	/** Banner poles round the arena's stands. */
+	protected readonly arenaFlags = [
+		{ x: -40, y: -12 },
+		{ x: 0, y: -24 },
+		{ x: 40, y: -12 },
+	];
 	protected readonly hearthStones = Array.from({ length: 8 }, (_, i) => ({
 		x: Math.round(Math.cos((i / 8) * Math.PI * 2) * 18),
 		y: Math.round(Math.sin((i / 8) * Math.PI * 2) * 9),
@@ -287,6 +346,7 @@ export class VillageMapComponent {
 			map: this._translateService.translate('Мапа поселення')(),
 			slot: this._translateService.translate('Вільне місце')(),
 			level: this._translateService.translate('рівень')(),
+			center: this._translateService.translate('Центр поселення')(),
 		};
 	});
 
@@ -312,7 +372,9 @@ export class VillageMapComponent {
 
 		return type
 			? `${this._translateService.translate(type.name)()}, ${this.labels().level} ${this.levelOf(building)}`
-			: `${this.labels().slot} ${id}`;
+			: id === CENTER_PLACE
+				? this.labels().center
+				: `${this.labels().slot} ${id}`;
 	}
 
 	protected toggle(id: number) {

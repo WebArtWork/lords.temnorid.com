@@ -25,7 +25,11 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 	template: `
 		<div class="p-1">
 			<h2 id="village-slot-modal-title" class="t-heading pr-10">
-				<span translate>Що звести тут?</span>
+				@if (center) {
+					<span translate>Що звести в центрі поселення?</span>
+				} @else {
+					<span translate>Що звести тут?</span>
+				}
 			</h2>
 
 			@for (group of groups(); track group.id) {
@@ -148,6 +152,8 @@ export class VillageSlotModalComponent {
 
 	/** The lord's game: what stands in the village, the farm and the stores. */
 	game!: GameState;
+	/** The village centre takes only centre buildings (the arena); other places take the rest. */
+	center = false;
 	build: (type: BuildingId) => Promise<void> = async () => {};
 	close: () => void = () => {};
 
@@ -181,7 +187,9 @@ export class VillageSlotModalComponent {
 
 		return BUILDING_CATEGORIES.map((category) => ({
 			...category,
-			options: BUILDINGS.filter((type) => type.category === category.id).map((type) => {
+			options: BUILDINGS.filter(
+				(type) => type.category === category.id && !!type.center === this.center,
+			).map((type) => {
 				const lacking = shortfall(stock, type.cost);
 
 				return {
@@ -202,7 +210,7 @@ export class VillageSlotModalComponent {
 						(Object.keys(lacking).length ? t('Бракує ресурсів') : ''),
 				};
 			}),
-		}));
+		})).filter((group) => group.options.length);
 	});
 
 	protected async pick(type: BuildingId) {

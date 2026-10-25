@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
-import { BuildingId } from '../../feature/building/building.interface';
+import { BuildingId, CENTER_PLACE } from '../../feature/building/building.interface';
 import { nowSignal } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { generateVillage } from '../../feature/village/village.generator';
@@ -89,6 +89,7 @@ export class VillageComponent {
 			component: VillageSlotModalComponent,
 			size: 'big',
 			game: this.state(),
+			center: slot === CENTER_PLACE,
 			build: (type: BuildingId) => this._build(slot, type),
 			ariaLabelledBy: 'village-slot-modal-title',
 			// Closing lets go of the place.
