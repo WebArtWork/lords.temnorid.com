@@ -1,31 +1,39 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../../feature/building/building.data';
 import { costAtLevel } from '../../feature/building/building.cost';
+import {
+	buildersBusyUntil,
+	buildSeconds,
+	formatDuration,
+	hallLevel,
+	levelAt,
+	nowSignal,
+	runningUpgrade,
+} from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
+import { shortfall } from '../../feature/economy/economy';
 import { RESOURCES } from '../../feature/resource/resource.data';
 
-/** One building in the village: what it is, its level, and what the next level will cost. */
+/** One building in the village: what it is, its level, and its construction or next upgrade. */
 @Component({
-	imports: [RouterLink, TranslateDirective],
+	imports: [TranslateDirective],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
-			<a class="btn" routerLink="/village">
-				<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-				<span translate>До поселення</span>
-			</a>
-
+		<section class="mx-auto max-w-[var(--container)] px-4 py-6 sm:px-6 sm:py-8">
 			@if (view(); as view) {
-				<div class="mt-6 flex flex-wrap items-center gap-4">
+				<div class="flex flex-wrap items-center gap-4">
 					<span class="building-icon material-symbols-outlined" aria-hidden="true">{{
 						view.type.icon
 					}}</span>
 					<div>
 						<h1 class="t-display" [translate]="view.type.name">{{ view.type.name }}</h1>
 						<p class="mt-1 t-lead">
-							<span translate>Рівень</span> {{ view.level }} ·
-							<span translate>Місце</span> {{ slot() }}
+							@if (view.level) {
+								<span translate>Рівень</span> {{ view.level }}
+							} @else {
+								<span translate>Будується</span>
+							}
 						</p>
 					</div>
 				</div>
@@ -37,42 +45,111 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 					{{ view.type.description }}
 				</p>
 
-				<section class="mt-8 max-w-[36rem] t-card" aria-labelledby="building-upgrade">
-					<h2 id="building-upgrade" class="t-item">
-						<span translate>Покращення до рівня</span> {{ view.level + 1 }}
-					</h2>
-					<ul class="mt-3 flex flex-wrap gap-x-4 gap-y-2" [attr.aria-label]="costLabel()">
-						@for (part of view.nextCost; track part.id) {
-							<li class="flex items-center gap-1.5" [title]="part.label">
+				<section
+					class="mt-8 max-w-[36rem] t-card"
+					aria-labelledby="building-work"
+					aria-live="polite"
+				>
+					@if (view.running; as running) {
+						<h2 id="building-work" class="t-item">
+							<span translate>Будується рівень</span> {{ running.level }}
+						</h2>
+						<div
+							class="building-progress mt-4"
+							role="progressbar"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							[attr.aria-valuenow]="running.percent"
+						>
+							<div
+								class="building-progress__bar"
+								[style.width.%]="running.percent"
+							></div>
+						</div>
+						<p class="mt-2 flex items-center gap-1.5 text-[var(--c-text-muted)]">
+							<span class="material-symbols-outlined text-[20px]" aria-hidden="true"
+								>schedule</span
+							>
+							<span translate>Залишилось</span>
+							<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+								running.left
+							}}</span>
+						</p>
+					} @else {
+						<h2 id="building-work" class="t-item">
+							<span translate>Покращення до рівня</span> {{ view.level + 1 }}
+						</h2>
+						<ul
+							class="mt-3 flex flex-wrap gap-x-4 gap-y-2"
+							[attr.aria-label]="labels().cost"
+						>
+							@for (part of view.nextCost; track part.id) {
+								<li class="flex items-center gap-1.5" [title]="part.label">
+									<span
+										class="material-symbols-outlined text-[20px]"
+										[style.color]="part.color"
+										aria-hidden="true"
+										>{{ part.icon }}</span
+									>
+									<span class="sr-only">{{ part.label }}:</span>
+									<span
+										class="font-semibold tabular-nums"
+										[class.cost-short]="part.short"
+										>{{ part.amount }}</span
+									>
+								</li>
+							}
+							<li class="flex items-center gap-1.5" [title]="labels().time">
 								<span
-									class="material-symbols-outlined text-[20px]"
-									[style.color]="part.color"
+									class="material-symbols-outlined text-[20px] text-[var(--c-text-muted)]"
 									aria-hidden="true"
-									>{{ part.icon }}</span
+									>schedule</span
 								>
-								<span class="sr-only">{{ part.label }}:</span>
-								<span class="font-semibold tabular-nums">{{ part.amount }}</span>
+								<span class="sr-only">{{ labels().time }}:</span>
+								<span class="font-semibold tabular-nums">{{ view.nextTime }}</span>
 							</li>
+						</ul>
+						<button
+							class="btn btn--primary mt-5"
+							[disabled]="!!view.busyFor || view.short || upgrading()"
+							(click)="upgrade()"
+							type="button"
+						>
+							<span class="material-symbols-outlined" aria-hidden="true"
+								>upgrade</span
+							>
+							<span translate>Покращити</span>
+						</button>
+						@if (view.busyFor) {
+							<p class="mt-2 text-sm text-[var(--c-text-muted)]">
+								<span translate>Будівельники зайняті ще</span> {{ view.busyFor }}
+							</p>
+						} @else if (view.short) {
+							<p class="mt-2 text-sm text-[var(--c-secondary)]" translate>
+								Бракує ресурсів
+							</p>
 						}
-					</ul>
-					<button class="btn btn--primary mt-5" disabled type="button">
-						<span class="material-symbols-outlined" aria-hidden="true">upgrade</span>
-						<span translate>Покращити</span>
-					</button>
-					<p class="mt-2 text-sm text-[var(--c-text-muted)]" translate>
-						Покращення з'явиться разом із запасами ресурсів.
-					</p>
+						@if (failed()) {
+							<p
+								class="mt-2 text-sm text-[var(--c-secondary)]"
+								role="alert"
+								translate
+							>
+								Не вдалося почати покращення. Спробуйте ще раз.
+							</p>
+						}
+					}
 				</section>
 			} @else if (missing()) {
-				<p class="mt-6 text-[var(--c-text-muted)]" translate>
+				<p class="text-[var(--c-text-muted)]" translate>
 					На цьому місці ще нічого не збудовано.
 				</p>
 			} @else if (error()) {
-				<p class="mt-6 text-[var(--c-secondary)]" role="alert" translate>
+				<p class="text-[var(--c-secondary)]" role="alert" translate>
 					Не вдалося завантажити будівлю. Оновіть сторінку.
 				</p>
 			} @else {
-				<p class="mt-6 text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
+				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
 			}
 		</section>
 	`,
@@ -89,6 +166,24 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 			color: var(--c-primary-text);
 			font-size: 40px;
 		}
+
+		.cost-short {
+			color: var(--c-secondary);
+		}
+
+		.building-progress {
+			height: 0.625rem;
+			overflow: hidden;
+			border-radius: 999px;
+			background: var(--c-bg-tertiary);
+		}
+
+		.building-progress__bar {
+			height: 100%;
+			border-radius: inherit;
+			background: var(--c-primary);
+			transition: width 1s linear;
+		}
 	`,
 })
 export class BuildingComponent {
@@ -96,19 +191,26 @@ export class BuildingComponent {
 	private readonly _router = inject(Router);
 	private readonly _translateService = inject(TranslateService);
 	private readonly _languageService = inject(LanguageService);
+	private readonly _now = nowSignal();
 
 	/** Village place id, from the route. */
 	readonly slot = input.required<string>();
 
-	protected readonly state = signal<GameState | null>(null);
+	/** The game from GameService, so an upgrade started here shows at once. */
+	protected readonly state = computed<GameState | null>(() => this._game.game());
+	protected readonly loaded = signal(false);
 	protected readonly error = signal(false);
+	protected readonly upgrading = signal(false);
+	protected readonly failed = signal(false);
 	protected readonly building = computed(
 		() => this.state()?.village.buildings?.[this.slot()] ?? null,
 	);
-	protected readonly missing = computed(() => !!this.state() && !this.building());
-	protected readonly costLabel = computed(() => {
+	protected readonly missing = computed(() => this.loaded() && !this.building());
+	protected readonly labels = computed(() => {
 		this._languageService.language();
-		return this._translateService.translate('Вартість')();
+		const t = (text: string) => this._translateService.translate(text)();
+
+		return { cost: t('Вартість'), time: t('Час будівництва') };
 	});
 	protected readonly view = computed(() => {
 		this._languageService.language();
@@ -119,17 +221,35 @@ export class BuildingComponent {
 			return null;
 		}
 
-		const next = costAtLevel(type.cost, building.level + 1);
+		const now = this._now();
+		const buildings = this.state()?.village.buildings ?? {};
+		const level = levelAt(building, now);
+		const running = runningUpgrade(building, now);
+		const game = this.state()!;
+		const busyUntil = buildersBusyUntil(buildings, now, game.farm.levels ?? {});
+		const next = costAtLevel(type.cost, level + 1);
+		const lacking = shortfall(this._game.stockNow(game, now), next);
 
 		return {
 			type,
-			level: building.level,
+			level,
+			running: running && {
+				level: running.level,
+				left: formatDuration((running.endsAt - now) / 1000),
+				percent: Math.round(
+					((now - running.startedAt) / (running.endsAt - running.startedAt)) * 100,
+				),
+			},
+			busyFor: busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
+			short: Object.keys(lacking).length > 0,
+			nextTime: formatDuration(buildSeconds(type, level + 1, hallLevel(buildings, now))),
 			nextCost: RESOURCES.filter((resource) => next[resource.id]).map((resource) => ({
 				id: resource.id,
 				icon: resource.icon,
 				color: resource.color,
 				label: this._translateService.translate(resource.name)(),
 				amount: next[resource.id]!,
+				short: !!lacking[resource.id],
 			})),
 		};
 	});
@@ -138,12 +258,26 @@ export class BuildingComponent {
 		void this._load();
 	}
 
+	protected async upgrade() {
+		this.upgrading.set(true);
+		this.failed.set(false);
+
+		try {
+			await this._game.upgrade(Number(this.slot()));
+		} catch (error) {
+			console.error(error);
+			this.failed.set(true);
+		} finally {
+			this.upgrading.set(false);
+		}
+	}
+
 	private async _load() {
 		try {
 			const state = await this._game.load();
 
 			if (state) {
-				this.state.set(state);
+				this.loaded.set(true);
 			} else {
 				await this._router.navigateByUrl('/onboarding');
 			}

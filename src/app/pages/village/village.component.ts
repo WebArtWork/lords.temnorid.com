@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
 import { BuildingId } from '../../feature/building/building.interface';
+import { nowSignal } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { generateVillage } from '../../feature/village/village.generator';
 import { VillageMapComponent } from '../../feature/village/village-map.component';
@@ -23,6 +24,7 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 					[element]="state.element"
 					[fill]="true"
 					[buildings]="state.village.buildings ?? {}"
+					[now]="now()"
 					[(selected)]="selected"
 				/>
 			</section>
@@ -53,6 +55,7 @@ export class VillageComponent {
 	protected readonly state = signal<GameState | null>(null);
 	protected readonly error = signal(false);
 	protected readonly selected = signal<number | null>(null);
+	protected readonly now = nowSignal();
 	protected readonly map = computed(() => {
 		const state = this.state();
 
@@ -85,8 +88,7 @@ export class VillageComponent {
 		this._modal.show({
 			component: VillageSlotModalComponent,
 			size: 'big',
-			slot,
-			built: Object.values(buildings).map((building) => building.type),
+			game: this.state(),
 			build: (type: BuildingId) => this._build(slot, type),
 			ariaLabelledBy: 'village-slot-modal-title',
 			// Closing lets go of the place.

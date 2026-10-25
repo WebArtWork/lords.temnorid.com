@@ -1,6 +1,6 @@
 <header class="t-bar t-rule-b relative z-50">
 	<div
-		class="flex min-h-16 w-full flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-visible px-4 py-3 sm:px-6 lg:px-8"
+		class="flex min-h-16 w-full flex-nowrap items-center md:flex-wrap justify-between gap-x-3 gap-y-2 sm:gap-x-6 overflow-visible px-4 py-3 sm:px-6 lg:px-8"
 	>
 		<!-- Signed in, the wordmark opens the world; signed out, the sign-in page. -->
 		<!-- On phones a signed-in player finds the wordmark's world link in the bottom bar. -->
@@ -35,11 +35,11 @@
 
 			@if (resources().length) {
 				<ul
-					class="topbar-resources flex flex-wrap items-center gap-x-3 gap-y-1"
+					class="topbar-resources flex shrink-0 items-center gap-x-3"
 					[attr.aria-label]="resourcesLabel()"
 				>
 					@for (resource of resources(); track resource.id) {
-						<li class="flex items-center gap-1" [title]="resource.label">
+						<li class="flex items-center gap-1" [title]="resource.title">
 							<span
 								class="material-symbols-outlined topbar-resource__icon"
 								[style.color]="resource.color"
@@ -47,16 +47,18 @@
 								>{{ resource.icon }}</span
 							>
 							<span class="sr-only">{{ resource.label }}:</span>
-							<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
-								resource.count
-							}}</span>
+							<span
+								class="font-semibold tabular-nums"
+								[class.topbar-resource__count--full]="resource.full"
+								>{{ resource.count }}</span
+							>
 						</li>
 					}
 				</ul>
 			}
 
 			<a
-				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 items-center gap-3 rounded-full py-0.5 pl-0.5 pr-0.5 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
+				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full py-0.5 pl-2 pr-0.5 sm:gap-3 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
 				[attr.aria-label]="profileLabel() + (playerName() ? ': ' + playerName() : '')"
 				routerLink="/profile"
 				routerLinkActive="topbar-profile--active"
@@ -64,12 +66,12 @@
 			>
 				@if (playerName()) {
 					<span
-						class="hidden max-w-[12rem] truncate font-semibold sm:inline text-[var(--c-text-strong)]"
+						class="min-w-0 max-w-[12rem] truncate font-semibold text-[var(--c-text-strong)]"
 						>{{ playerName() }}</span
 					>
 				}
 				<app-avatar
-					class="overflow-hidden rounded-full border border-[var(--c-border)]"
+					class="shrink-0 overflow-hidden rounded-full border border-[var(--c-border)]"
 					[photoUrl]="user.photoURL"
 					[name]="user.displayName"
 					[size]="40"

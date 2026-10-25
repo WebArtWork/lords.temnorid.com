@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { generateFarm } from '../../feature/farm/farm.generator';
 import { FarmMapComponent } from '../../feature/farm/farm-map.component';
+import { nowSignal } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { GameHeaderComponent } from '../../layouts/game-header/game-header.component';
 
@@ -14,7 +15,14 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 			<section class="h-full">
 				<app-game-header title="Угіддя" />
 				<!-- Fills everything under the top bar; the map keeps every plot in view. -->
-				<app-farm-map class="h-full" [map]="map()!" [fill]="true" [(selected)]="selected" />
+				<app-farm-map
+					class="h-full"
+					[map]="map()!"
+					[fill]="true"
+					[levels]="state.farm.levels ?? {}"
+					[now]="now()"
+					[(selected)]="selected"
+				/>
 			</section>
 		} @else {
 			<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
@@ -42,6 +50,7 @@ export class FarmComponent {
 	protected readonly state = signal<GameState | null>(null);
 	protected readonly error = signal(false);
 	protected readonly selected = signal<number | null>(null);
+	protected readonly now = nowSignal();
 	protected readonly map = computed(() => {
 		const state = this.state();
 

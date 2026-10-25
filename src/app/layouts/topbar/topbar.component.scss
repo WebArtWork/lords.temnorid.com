@@ -22,3 +22,12 @@
 :host-context(html[data-mode='dark']) .topbar-resource__icon {
 	filter: brightness(1.6) saturate(1.1);
 }
+
+.topbar-resources {
+	color: var(--c-text-strong);
+}
+
+/* A full store stops growing: say so before the lord wastes production. */
+.topbar-resource__count--full {
+	color: var(--c-secondary);
+}

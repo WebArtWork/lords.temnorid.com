@@ -199,5 +199,17 @@
 	"Back to the farm",
 	"Plot",
 	"A plot yields one resource. The higher its level, the more it brings in every hour.",
-	"There is no such plot on your farm."
+	"There is no such plot on your farm.",
+	"What to build here?",
+	"Build time",
+	"Builders are busy for",
+	"Under construction",
+	"Building level",
+	"Time left",
+	"Couldn't start the upgrade. Try again.",
+	"per hour",
+	"Not enough resources",
+	"Yield",
+	"Upgrading to level",
+	"Highest level"
 ]

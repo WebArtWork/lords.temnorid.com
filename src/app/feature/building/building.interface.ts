@@ -45,8 +45,25 @@ export interface BuildingType {
 	repeatable?: boolean;
 }
 
-/** A building standing on a village place. Saved in VillageSave.buildings by place id. */
-export interface VillageBuilding {
-	type: BuildingId;
+/**
+ * Something that is raised level by level over time: a building or a farm plot. `level` is the
+ * last finished level; `upgrade` is the latest construction, which counts as done once `endsAt`
+ * has passed (see levelAt).
+ */
+export interface Construction {
 	level: number;
+	upgrade?: {
+		level: number;
+		/** Epoch milliseconds. */
+		startedAt: number;
+		endsAt: number;
+	};
+}
+
+/**
+ * A building on a village place, saved in VillageSave.buildings by place id. Its level is 0 while
+ * the first one is still being raised.
+ */
+export interface VillageBuilding extends Construction {
+	type: BuildingId;
 }

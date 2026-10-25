@@ -4,7 +4,8 @@ import { ElementId } from '../element/element.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { RegionId } from '../region/region.interface';
 import { FarmSave } from '../farm/farm.interface';
-import { VillageBuilding } from '../building/building.interface';
+import { Construction, VillageBuilding } from '../building/building.interface';
+import { StockSave } from '../economy/economy';
 import { VillageSave } from '../village/village.interface';
 
 /** A player's Lords save. */
@@ -17,6 +18,8 @@ export interface LordsProgress {
 	lord?: {
 		name?: string;
 	};
+	/** The lord's stores at one moment; see economy.ts. */
+	stock?: StockSave;
 	/** Generated maps, saved the first time the game opens and never regenerated. */
 	village?: VillageSave;
 	farm?: FarmSave;
@@ -65,11 +68,25 @@ export class ProgressService {
 		await this._merge(uid, maps);
 	}
 
-	/** Puts a building on a village place. Merges, so the rest of the village save stays. */
-	async setBuilding(uid: string, slot: number, building: VillageBuilding) {
+	/** Saves the stores, e.g. the starting stock of a lord who has none yet. */
+	async setStock(uid: string, stock: StockSave) {
+		await this._merge(uid, { stock });
+	}
+
+	/** Puts a building on a village place and saves the stores it was paid from. */
+	async setBuilding(uid: string, slot: number, building: VillageBuilding, stock: StockSave) {
 		await setDoc(
 			this._ref(uid),
-			{ village: { buildings: { [slot]: building } }, updatedAt: serverTimestamp() },
+			{ stock, village: { buildings: { [slot]: building } }, updatedAt: serverTimestamp() },
+			{ merge: true },
+		);
+	}
+
+	/** Saves a farm plot's level work and the stores it was paid from. */
+	async setPlot(uid: string, plot: number, construction: Construction, stock: StockSave) {
+		await setDoc(
+			this._ref(uid),
+			{ stock, farm: { levels: { [plot]: construction } }, updatedAt: serverTimestamp() },
 			{ merge: true },
 		);
 	}

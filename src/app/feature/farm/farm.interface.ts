@@ -1,3 +1,4 @@
+import { Construction } from '../building/building.interface';
 import { Point } from '../map/map-geometry';
 import { ResourceId } from '../resource/resource.interface';
 
@@ -12,6 +13,8 @@ export interface FarmSave {
 	seed: number;
 	layout: number;
 	plots: FarmPlot[];
+	/** How far each plot has been worked, by plot id. Plots not listed are at level 0. */
+	levels?: Record<string, Construction>;
 }
 
 export interface FarmDecor extends Point {

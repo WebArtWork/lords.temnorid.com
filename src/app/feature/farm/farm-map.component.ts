@@ -1,6 +1,8 @@
 import { Component, computed, inject, input, model } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
+import { Construction } from '../building/building.interface';
+import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
 import { RESOURCE_BY_ID } from '../resource/resource.data';
 import { FarmMap } from './farm.interface';
 
@@ -100,7 +102,7 @@ import { FarmMap } from './farm.interface';
 					[attr.transform]="'translate(' + plot.x + ' ' + plot.y + ')'"
 					role="button"
 					tabindex="0"
-					[attr.aria-label]="labels().names[plot.resource] + ', ' + labels().plot + ' ' + plot.id"
+					[attr.aria-label]="labels().names[plot.resource] + ', ' + labels().level + ' ' + levelOf(plot.id)"
 					[attr.aria-pressed]="plot.id === selected()"
 					(click)="toggle(plot.id)"
 					(keydown.enter)="toggle(plot.id)"
@@ -111,6 +113,18 @@ import { FarmMap } from './farm.interface';
 					<text class="material-symbols-outlined farm-plot__icon" text-anchor="middle" dominant-baseline="central" [attr.fill]="resources[plot.resource].color">
 						{{ resources[plot.resource].icon }}
 					</text>
+					@if (levelOf(plot.id); as level) {
+						<g transform="translate(17 -17)">
+							<circle class="farm-plot__level" r="10" />
+							<text class="farm-plot__level-text" y="1">{{ level }}</text>
+						</g>
+					}
+					@if (timeLeft(plot.id); as left) {
+						<g transform="translate(0 33)">
+							<rect class="farm-plot__timer" x="-28" y="-10" width="56" height="20" rx="10" />
+							<text class="farm-plot__timer-text" y="1">{{ left }}</text>
+						</g>
+					}
 				</g>
 			}
 		</svg>
@@ -122,6 +136,33 @@ import { FarmMap } from './farm.interface';
 
 		:host-context(html[data-mode='dark']) .farm-map {
 			filter: brightness(0.82) saturate(0.9);
+		}
+
+		.farm-plot__level {
+			fill: #e4a74a;
+			stroke: #5a3a1c;
+			stroke-width: 2;
+		}
+
+		.farm-plot__level-text,
+		.farm-plot__timer-text {
+			font-size: 12px;
+			font-weight: 700;
+			text-anchor: middle;
+			dominant-baseline: central;
+		}
+
+		.farm-plot__level-text {
+			fill: #1d140d;
+		}
+
+		.farm-plot__timer {
+			fill: rgb(29 20 13 / 0.82);
+		}
+
+		.farm-plot__timer-text {
+			fill: #fff8e8;
+			font-variant-numeric: tabular-nums;
 		}
 
 		.farm-village {
@@ -178,6 +219,10 @@ export class FarmMapComponent {
 	readonly selected = model<number | null>(null);
 	/** Fill the host's whole box, keeping every plot in view, instead of sizing from the width. */
 	readonly fill = input(false);
+	/** How far each plot has been worked, by plot id. */
+	readonly levels = input<Record<string, Construction>>({});
+	/** The clock, in epoch milliseconds, so work in progress shows its countdown. */
+	readonly now = input(0);
 
 	protected readonly resources = RESOURCE_BY_ID;
 	protected readonly houses = [
@@ -194,12 +239,26 @@ export class FarmMapComponent {
 		return {
 			map: t('Мапа угідь'),
 			village: t('Перейти до поселення'),
-			plot: t('ділянка'),
+			level: t('рівень'),
 			names: Object.fromEntries(
 				Object.values(RESOURCE_BY_ID).map((r) => [r.id, t(r.name)]),
 			) as Record<string, string>,
 		};
 	});
+
+	protected levelOf(id: number): number {
+		const saved = this.levels()[id];
+
+		return saved ? levelAt(saved, this.now()) : 0;
+	}
+
+	/** Countdown of work still running on a plot, or an empty string. */
+	protected timeLeft(id: number): string {
+		const saved = this.levels()[id];
+		const running = saved && runningUpgrade(saved, this.now());
+
+		return running ? formatDuration((running.endsAt - this.now()) / 1000) : '';
+	}
 
 	protected toggle(id: number) {
 		this.selected.update((current) => (current === id ? null : id));

@@ -2,6 +2,7 @@ import { Component, computed, inject, input, model } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { VillageBuilding } from '../building/building.interface';
+import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
 import { VillageMap } from './village.interface';
 
@@ -112,18 +113,34 @@ import { VillageMap } from './village.interface';
 					<!-- Ground under the plot hides the road that leads into it. -->
 					<ellipse cx="0" cy="0" rx="40" ry="25" [attr.fill]="palette().ground" />
 					@if (buildings()[slot.id]; as building) {
-						<!-- A low-poly hall: lit west wall, shaded east wall, two-tone roof. -->
+						@let level = levelOf(building);
 						<ellipse cx="0" cy="14" rx="40" ry="11" fill="rgb(0 0 0 / 0.22)" />
-						<path d="M-30 16 L-30 -6 L0 -14 L0 10 Z" fill="#efe3c6" />
-						<path d="M0 -14 L30 -6 L30 16 L0 10 Z" fill="#cbb994" />
-						<path d="M-36 -4 L-4 -36 L0 -14 L-30 -6 Z" fill="#a8583a" />
-						<path d="M-4 -36 L36 -4 L30 -6 L0 -14 Z" fill="#7a3a24" />
+						@if (level) {
+							<!-- A low-poly hall: lit west wall, shaded east wall, two-tone roof. -->
+							<path d="M-30 16 L-30 -6 L0 -14 L0 10 Z" fill="#efe3c6" />
+							<path d="M0 -14 L30 -6 L30 16 L0 10 Z" fill="#cbb994" />
+							<path d="M-36 -4 L-4 -36 L0 -14 L-30 -6 Z" fill="#a8583a" />
+							<path d="M-4 -36 L36 -4 L30 -6 L0 -14 Z" fill="#7a3a24" />
+						} @else {
+							<!-- Scaffolding: the first level is still going up. -->
+							<path d="M-30 16 L-30 0 L0 -6 L0 10 Z" fill="#d8c8a2" />
+							<path d="M0 -6 L30 0 L30 16 L0 10 Z" fill="#b8a47c" />
+							<path class="village-scaffold" d="M-32 18 V-22 M32 18 V-22 M0 12 V-30 M-32 -10 H32 M-32 -22 H32 M-32 18 L32 -22" />
+						}
 						<circle class="village-building__badge" cx="0" cy="1" r="15" />
 						<text class="material-symbols-outlined village-building__icon" x="0" y="1">{{ iconOf(building) }}</text>
-						<g transform="translate(28 -26)">
-							<circle class="village-building__level" r="11" />
-							<text class="village-building__level-text" y="1">{{ building.level }}</text>
-						</g>
+						@if (level) {
+							<g transform="translate(28 -26)">
+								<circle class="village-building__level" r="11" />
+								<text class="village-building__level-text" y="1">{{ level }}</text>
+							</g>
+						}
+						@if (timeLeft(building); as left) {
+							<g transform="translate(0 34)">
+								<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
+								<text class="village-building__timer-text" y="1">{{ left }}</text>
+							</g>
+						}
 					} @else {
 						<ellipse class="village-slot__plot" cx="0" cy="0" rx="40" ry="25" />
 						<path class="village-slot__plus" d="M-8 0 H8 M0 -8 V8" />
@@ -168,6 +185,26 @@ import { VillageMap } from './village.interface';
 		.village-building__level-text {
 			fill: #1d140d;
 			font-size: 13px;
+			font-weight: 700;
+			text-anchor: middle;
+			dominant-baseline: central;
+		}
+
+		.village-scaffold {
+			fill: none;
+			stroke: #6b4a2c;
+			stroke-linecap: round;
+			stroke-width: 3;
+		}
+
+		.village-building__timer {
+			fill: rgb(29 20 13 / 0.82);
+		}
+
+		.village-building__timer-text {
+			fill: #fff8e8;
+			font-size: 13px;
+			font-variant-numeric: tabular-nums;
 			font-weight: 700;
 			text-anchor: middle;
 			dominant-baseline: central;
@@ -232,6 +269,8 @@ export class VillageMapComponent {
 	readonly selected = model<number | null>(null);
 	/** What stands on each place, by place id. */
 	readonly buildings = input<Record<string, VillageBuilding>>({});
+	/** The clock, in epoch milliseconds, so construction shows its progress. */
+	readonly now = input(0);
 	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
 	readonly fill = input(false);
 
@@ -251,6 +290,17 @@ export class VillageMapComponent {
 		};
 	});
 
+	protected levelOf(building: VillageBuilding): number {
+		return levelAt(building, this.now());
+	}
+
+	/** Countdown of a construction still running, or an empty string. */
+	protected timeLeft(building: VillageBuilding): string {
+		const running = runningUpgrade(building, this.now());
+
+		return running ? formatDuration((running.endsAt - this.now()) / 1000) : '';
+	}
+
 	protected iconOf(building: VillageBuilding): string {
 		return BUILDING_BY_ID[building.type]?.icon ?? 'home';
 	}
@@ -261,7 +311,7 @@ export class VillageMapComponent {
 		const type = building && BUILDING_BY_ID[building.type];
 
 		return type
-			? `${this._translateService.translate(type.name)()}, ${this.labels().level} ${building.level}`
+			? `${this._translateService.translate(type.name)()}, ${this.labels().level} ${this.levelOf(building)}`
 			: `${this.labels().slot} ${id}`;
 	}
 

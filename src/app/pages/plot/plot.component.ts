@@ -1,29 +1,35 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { costAtLevel } from '../../feature/building/building.cost';
+import {
+	buildersBusyUntil,
+	buildSeconds,
+	formatDuration,
+	hallLevel,
+	levelAt,
+	nowSignal,
+	runningUpgrade,
+} from '../../feature/building/building.timing';
+import {
+	PLOT_COST,
+	PLOT_MAX_LEVEL,
+	plotProduction,
+	shortfall,
+} from '../../feature/economy/economy';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data';
-import { ResourceId } from '../../feature/resource/resource.interface';
-
-/** What the first level of any plot costs, as a Travian resource field does. */
-const PLOT_COST: Partial<Record<ResourceId, number>> = { wood: 40, stone: 50, clay: 60, grain: 30 };
 
 /**
- * One plot of the farm, Travian's resource field: what it yields and what working it harder will
- * cost. Plots start untended, at level 0.
+ * One plot of the farm, Travian's resource field: what it yields each hour and what working it to
+ * the next level costs. Plots start at level 0 and share the village's builders.
  */
 @Component({
-	imports: [RouterLink, TranslateDirective],
+	imports: [TranslateDirective],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
-			<a class="btn" routerLink="/farm">
-				<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-				<span translate>До угідь</span>
-			</a>
-
+		<section class="mx-auto max-w-[var(--container)] px-4 py-6 sm:px-6 sm:py-8">
 			@if (view(); as view) {
-				<div class="mt-6 flex flex-wrap items-center gap-4">
+				<div class="flex flex-wrap items-center gap-4">
 					<span
 						class="plot-icon material-symbols-outlined"
 						[style.color]="view.resource.color"
@@ -31,56 +37,127 @@ const PLOT_COST: Partial<Record<ResourceId, number>> = { wood: 40, stone: 50, cl
 						>{{ view.resource.icon }}</span
 					>
 					<div>
-						<h1 class="t-display">
-							<span [translate]="view.resource.name">{{ view.resource.name }}</span>
+						<h1 class="t-display" [translate]="view.resource.name">
+							{{ view.resource.name }}
 						</h1>
-						<p class="mt-1 t-lead">
-							<span translate>Ділянка</span> {{ id() }} ·
-							<span translate>Рівень</span> {{ view.level }}
-						</p>
+						<p class="mt-1 t-lead"><span translate>Рівень</span> {{ view.level }}</p>
 					</div>
 				</div>
 
-				<p class="mt-6 max-w-[var(--reading)] leading-8" translate>
-					Ділянка дає один ресурс. Що вищий її рівень, то більше вона приносить щогодини.
+				<p class="mt-6 flex items-center gap-2 text-lg">
+					<span translate>Видобуток</span>
+					<span class="font-semibold tabular-nums">{{ view.perHour }}</span>
+					<span translate>за годину</span>
 				</p>
 
-				<section class="mt-8 max-w-[36rem] t-card" aria-labelledby="plot-upgrade">
-					<h2 id="plot-upgrade" class="t-item">
-						<span translate>Покращення до рівня</span> {{ view.level + 1 }}
-					</h2>
-					<ul class="mt-3 flex flex-wrap gap-x-4 gap-y-2" [attr.aria-label]="costLabel()">
-						@for (part of view.nextCost; track part.id) {
-							<li class="flex items-center gap-1.5" [title]="part.label">
+				<section
+					class="mt-8 max-w-[36rem] t-card"
+					aria-labelledby="plot-work"
+					aria-live="polite"
+				>
+					@if (view.running; as running) {
+						<h2 id="plot-work" class="t-item">
+							<span translate>Покращується до рівня</span> {{ running.level }}
+						</h2>
+						<div
+							class="plot-progress mt-4"
+							role="progressbar"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							[attr.aria-valuenow]="running.percent"
+						>
+							<div class="plot-progress__bar" [style.width.%]="running.percent"></div>
+						</div>
+						<p class="mt-2 flex items-center gap-1.5 text-[var(--c-text-muted)]">
+							<span class="material-symbols-outlined text-[20px]" aria-hidden="true"
+								>schedule</span
+							>
+							<span translate>Залишилось</span>
+							<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+								running.left
+							}}</span>
+						</p>
+					} @else if (view.level >= maxLevel) {
+						<h2 id="plot-work" class="t-item" translate>Найвищий рівень</h2>
+					} @else {
+						<h2 id="plot-work" class="t-item">
+							<span translate>Покращення до рівня</span> {{ view.level + 1 }}
+						</h2>
+						<p class="mt-1 text-sm text-[var(--c-text-muted)]">
+							<span translate>Видобуток</span> {{ view.nextPerHour }}
+							<span translate>за годину</span>
+						</p>
+						<ul
+							class="mt-3 flex flex-wrap gap-x-4 gap-y-2"
+							[attr.aria-label]="labels().cost"
+						>
+							@for (part of view.nextCost; track part.id) {
+								<li class="flex items-center gap-1.5" [title]="part.label">
+									<span
+										class="material-symbols-outlined text-[20px]"
+										[style.color]="part.color"
+										aria-hidden="true"
+										>{{ part.icon }}</span
+									>
+									<span class="sr-only">{{ part.label }}:</span>
+									<span
+										class="font-semibold tabular-nums"
+										[class.cost-short]="part.short"
+										>{{ part.amount }}</span
+									>
+								</li>
+							}
+							<li class="flex items-center gap-1.5" [title]="labels().time">
 								<span
-									class="material-symbols-outlined text-[20px]"
-									[style.color]="part.color"
+									class="material-symbols-outlined text-[20px] text-[var(--c-text-muted)]"
 									aria-hidden="true"
-									>{{ part.icon }}</span
+									>schedule</span
 								>
-								<span class="sr-only">{{ part.label }}:</span>
-								<span class="font-semibold tabular-nums">{{ part.amount }}</span>
+								<span class="sr-only">{{ labels().time }}:</span>
+								<span class="font-semibold tabular-nums">{{ view.nextTime }}</span>
 							</li>
+						</ul>
+						<button
+							class="btn btn--primary mt-5"
+							[disabled]="!!view.busyFor || view.short || upgrading()"
+							(click)="upgrade()"
+							type="button"
+						>
+							<span class="material-symbols-outlined" aria-hidden="true"
+								>upgrade</span
+							>
+							<span translate>Покращити</span>
+						</button>
+						@if (view.busyFor) {
+							<p class="mt-2 text-sm text-[var(--c-text-muted)]">
+								<span translate>Будівельники зайняті ще</span> {{ view.busyFor }}
+							</p>
+						} @else if (view.short) {
+							<p class="mt-2 text-sm text-[var(--c-secondary)]" translate>
+								Бракує ресурсів
+							</p>
 						}
-					</ul>
-					<button class="btn btn--primary mt-5" disabled type="button">
-						<span class="material-symbols-outlined" aria-hidden="true">upgrade</span>
-						<span translate>Покращити</span>
-					</button>
-					<p class="mt-2 text-sm text-[var(--c-text-muted)]" translate>
-						Покращення з'явиться разом із запасами ресурсів.
-					</p>
+						@if (failed()) {
+							<p
+								class="mt-2 text-sm text-[var(--c-secondary)]"
+								role="alert"
+								translate
+							>
+								Не вдалося почати покращення. Спробуйте ще раз.
+							</p>
+						}
+					}
 				</section>
 			} @else if (missing()) {
-				<p class="mt-6 text-[var(--c-text-muted)]" translate>
+				<p class="text-[var(--c-text-muted)]" translate>
 					Такої ділянки немає у ваших угіддях.
 				</p>
 			} @else if (error()) {
-				<p class="mt-6 text-[var(--c-secondary)]" role="alert" translate>
+				<p class="text-[var(--c-secondary)]" role="alert" translate>
 					Не вдалося завантажити угіддя. Оновіть сторінку.
 				</p>
 			} @else {
-				<p class="mt-6 text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
+				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
 			}
 		</section>
 	`,
@@ -96,6 +173,24 @@ const PLOT_COST: Partial<Record<ResourceId, number>> = { wood: 40, stone: 50, cl
 			background: var(--c-bg-tertiary);
 			font-size: 40px;
 		}
+
+		.cost-short {
+			color: var(--c-secondary);
+		}
+
+		.plot-progress {
+			height: 0.625rem;
+			overflow: hidden;
+			border-radius: 999px;
+			background: var(--c-bg-tertiary);
+		}
+
+		.plot-progress__bar {
+			height: 100%;
+			border-radius: inherit;
+			background: var(--c-primary);
+			transition: width 1s linear;
+		}
 	`,
 })
 export class PlotComponent {
@@ -103,40 +198,71 @@ export class PlotComponent {
 	private readonly _router = inject(Router);
 	private readonly _translateService = inject(TranslateService);
 	private readonly _languageService = inject(LanguageService);
+	private readonly _now = nowSignal();
 
 	/** Farm plot id, from the route. */
 	readonly id = input.required<string>();
 
-	protected readonly state = signal<GameState | null>(null);
+	protected readonly maxLevel = PLOT_MAX_LEVEL;
+	/** The game from GameService, so work started here shows at once. */
+	protected readonly state = computed<GameState | null>(() => this._game.game());
+	protected readonly loaded = signal(false);
 	protected readonly error = signal(false);
+	protected readonly upgrading = signal(false);
+	protected readonly failed = signal(false);
 	protected readonly plot = computed(
 		() => this.state()?.farm.plots.find((plot) => String(plot.id) === this.id()) ?? null,
 	);
-	protected readonly missing = computed(() => !!this.state() && !this.plot());
-	protected readonly costLabel = computed(() => {
+	protected readonly missing = computed(() => this.loaded() && !this.plot());
+	protected readonly labels = computed(() => {
 		this._languageService.language();
-		return this._translateService.translate('Вартість')();
+		const t = (text: string) => this._translateService.translate(text)();
+
+		return { cost: t('Вартість'), time: t('Час будівництва') };
 	});
 	protected readonly view = computed(() => {
 		this._languageService.language();
+		const game = this.state();
 		const plot = this.plot();
 
-		if (!plot) {
+		if (!game || !plot) {
 			return null;
 		}
 
-		const level = 0;
+		const now = this._now();
+		const levels = game.farm.levels ?? {};
+		const saved = levels[plot.id] ?? { level: 0 };
+		const level = levelAt(saved, now);
+		const running = runningUpgrade(saved, now);
+		const buildings = game.village.buildings ?? {};
+		const busyUntil = buildersBusyUntil(buildings, now, levels);
 		const next = costAtLevel(PLOT_COST, level + 1);
+		const lacking = shortfall(this._game.stockNow(game, now), next);
 
 		return {
 			resource: RESOURCE_BY_ID[plot.resource],
 			level,
+			perHour: plotProduction(level),
+			nextPerHour: plotProduction(level + 1),
+			running: running && {
+				level: running.level,
+				left: formatDuration((running.endsAt - now) / 1000),
+				percent: Math.round(
+					((now - running.startedAt) / (running.endsAt - running.startedAt)) * 100,
+				),
+			},
+			busyFor: busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
+			short: Object.keys(lacking).length > 0,
+			nextTime: formatDuration(
+				buildSeconds({ cost: PLOT_COST }, level + 1, hallLevel(buildings, now)),
+			),
 			nextCost: RESOURCES.filter((resource) => next[resource.id]).map((resource) => ({
 				id: resource.id,
 				icon: resource.icon,
 				color: resource.color,
 				label: this._translateService.translate(resource.name)(),
 				amount: next[resource.id]!,
+				short: !!lacking[resource.id],
 			})),
 		};
 	});
@@ -145,12 +271,26 @@ export class PlotComponent {
 		void this._load();
 	}
 
+	protected async upgrade() {
+		this.upgrading.set(true);
+		this.failed.set(false);
+
+		try {
+			await this._game.upgradePlot(Number(this.id()));
+		} catch (error) {
+			console.error(error);
+			this.failed.set(true);
+		} finally {
+			this.upgrading.set(false);
+		}
+	}
+
 	private async _load() {
 		try {
 			const state = await this._game.load();
 
 			if (state) {
-				this.state.set(state);
+				this.loaded.set(true);
 			} else {
 				await this._router.navigateByUrl('/onboarding');
 			}

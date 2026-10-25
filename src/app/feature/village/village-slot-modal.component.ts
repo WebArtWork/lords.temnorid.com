@@ -2,11 +2,21 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID, BUILDING_CATEGORIES, BUILDINGS } from '../building/building.data';
 import { BuildingId, BuildingType } from '../building/building.interface';
+import {
+	buildersBusyUntil,
+	buildSeconds,
+	formatDuration,
+	hallLevel,
+	levelAt,
+	nowSignal,
+} from '../building/building.timing';
+import { shortfall, stockAt } from '../economy/economy';
+import { GameState } from '../game/game.service';
 import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 
 /**
  * What can be raised on a free village place, opened through ModalService. ModalService copies its
- * options onto this instance, so `slot`, `built`, `build` and `close` are plain fields set before
+ * options onto this instance, so `game`, `build` and `close` are plain fields set before
  * the first render.
  */
 @Component({
@@ -15,7 +25,7 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 	template: `
 		<div class="p-1">
 			<h2 id="village-slot-modal-title" class="t-heading pr-10">
-				<span translate>Що звести на місці</span> {{ slot }}?
+				<span translate>Що звести тут?</span>
 			</h2>
 
 			@for (group of groups(); track group.id) {
@@ -61,9 +71,22 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 											>{{ part.icon }}</span
 										>
 										<span class="sr-only">{{ part.label }}:</span>
-										<span class="tabular-nums">{{ part.amount }}</span>
+										<span
+											class="tabular-nums"
+											[class.building-option__short]="part.short"
+											>{{ part.amount }}</span
+										>
 									</li>
 								}
+								<li class="flex items-center gap-1" [title]="labels().time">
+									<span
+										class="material-symbols-outlined text-[18px] text-[var(--c-text-muted)]"
+										aria-hidden="true"
+										>schedule</span
+									>
+									<span class="sr-only">{{ labels().time }}:</span>
+									<span class="tabular-nums">{{ option.time }}</span>
+								</li>
 							</ul>
 
 							<div class="mt-3 flex items-center justify-between gap-3">
@@ -104,6 +127,11 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 			padding: 0.875rem;
 		}
 
+		.building-option__short {
+			color: var(--c-secondary);
+			font-weight: 700;
+		}
+
 		.building-option--locked {
 			opacity: 0.7;
 		}
@@ -118,40 +146,62 @@ export class VillageSlotModalComponent {
 	private readonly _translateService = inject(TranslateService);
 	private readonly _languageService = inject(LanguageService);
 
-	slot = 0;
-	/** Types already standing in the village, one entry per building. */
-	built: BuildingId[] = [];
+	/** The lord's game: what stands in the village, the farm and the stores. */
+	game!: GameState;
 	build: (type: BuildingId) => Promise<void> = async () => {};
 	close: () => void = () => {};
 
 	protected readonly busy = signal<BuildingId | null>(null);
 	protected readonly error = signal(false);
+	private readonly _now = nowSignal();
 
 	protected readonly labels = computed(() => {
 		this._languageService.language();
 
-		return { cost: this._translateService.translate('Вартість')() };
+		return {
+			cost: this._translateService.translate('Вартість')(),
+			time: this._translateService.translate('Час будівництва')(),
+		};
 	});
 
 	/** Every building, by category, with what it costs and why it cannot be raised yet. */
 	protected readonly groups = computed(() => {
 		this._languageService.language();
 		const t = (text: string) => this._translateService.translate(text)();
-		const standing = new Set(this.built);
+		const now = this._now();
+		const buildings = this.game.village.buildings ?? {};
+		const plots = this.game.farm.levels ?? {};
+		const stock = stockAt(this.game.stock, this.game.farm.plots, plots, buildings, now);
+		const all = Object.values(buildings);
+		// Anything on a place counts as taken; only finished buildings unlock others.
+		const present = new Set(all.map((building) => building.type));
+		const finished = new Set(all.filter((b) => levelAt(b, now) >= 1).map((b) => b.type));
+		const hall = hallLevel(buildings, now);
+		const busyUntil = buildersBusyUntil(buildings, now, plots);
 
 		return BUILDING_CATEGORIES.map((category) => ({
 			...category,
-			options: BUILDINGS.filter((type) => type.category === category.id).map((type) => ({
-				type,
-				cost: RESOURCES.filter((resource) => type.cost[resource.id]).map((resource) => ({
-					id: resource.id,
-					icon: resource.icon,
-					color: resource.color,
-					label: t(RESOURCE_BY_ID[resource.id].name),
-					amount: type.cost[resource.id]!,
-				})),
-				blocked: this._blocked(type, standing, t),
-			})),
+			options: BUILDINGS.filter((type) => type.category === category.id).map((type) => {
+				const lacking = shortfall(stock, type.cost);
+
+				return {
+					type,
+					cost: RESOURCES.filter((resource) => type.cost[resource.id]).map(
+						(resource) => ({
+							id: resource.id,
+							icon: resource.icon,
+							color: resource.color,
+							label: t(RESOURCE_BY_ID[resource.id].name),
+							amount: type.cost[resource.id]!,
+							short: !!lacking[resource.id],
+						}),
+					),
+					time: formatDuration(buildSeconds(type, 1, hall)),
+					blocked:
+						this._blocked(type, present, finished, busyUntil, now, t) ||
+						(Object.keys(lacking).length ? t('Бракує ресурсів') : ''),
+				};
+			}),
 		}));
 	});
 
@@ -172,17 +222,24 @@ export class VillageSlotModalComponent {
 	/** Why a building cannot be raised here yet, or an empty string when it can. */
 	private _blocked(
 		type: BuildingType,
-		standing: Set<BuildingId>,
+		present: Set<BuildingId>,
+		finished: Set<BuildingId>,
+		busyUntil: number | null,
+		now: number,
 		t: (text: string) => string,
 	): string {
-		if (!type.repeatable && standing.has(type.id)) {
+		if (!type.repeatable && present.has(type.id)) {
 			return t('Вже збудовано');
 		}
 
-		const missing = type.requires.filter((id) => !standing.has(id));
+		const missing = type.requires.filter((id) => !finished.has(id));
 
-		return missing.length
-			? `${t('Спершу потрібно')}: ${missing.map((id) => t(BUILDING_BY_ID[id].name)).join(', ')}`
+		if (missing.length) {
+			return `${t('Спершу потрібно')}: ${missing.map((id) => t(BUILDING_BY_ID[id].name)).join(', ')}`;
+		}
+
+		return busyUntil
+			? `${t('Будівельники зайняті ще')} ${formatDuration((busyUntil - now) / 1000)}`
 			: '';
 	}
 }

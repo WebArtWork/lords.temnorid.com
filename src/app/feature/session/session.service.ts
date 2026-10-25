@@ -16,8 +16,6 @@ export class SessionService {
 	readonly user = computed(() => this._firebase()?.user() ?? null);
 	/** The lord's game, once loaded. */
 	readonly game = computed(() => this._game()?.game() ?? null);
-	/** Farm plots per resource. Null until the game has loaded. */
-	readonly resourceCounts = computed(() => this._game()?.resourceCounts() ?? null);
 
 	constructor() {
 		if (!isPlatformBrowser(inject(PLATFORM_ID))) {

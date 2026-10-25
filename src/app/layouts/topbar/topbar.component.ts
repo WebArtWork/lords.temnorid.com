@@ -6,6 +6,8 @@ import { ThemeService } from '@wawjs/ngx-ui';
 import type { Language } from '@wawjs/ngx-translate';
 import type { AppLanguage } from '../../../environments/environment.prod';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
+import { nowSignal } from '../../feature/building/building.timing';
+import { capacity, productionPerHour, stockAt } from '../../feature/economy/economy';
 import { RESOURCES } from '../../feature/resource/resource.data';
 import { SessionService } from '../../feature/session/session.service';
 import { PLACES } from './places';
@@ -28,18 +30,36 @@ export class TopbarComponent {
 	protected readonly playerName = computed(
 		() => this._session.game()?.lordName ?? this.user()?.displayName ?? '',
 	);
-	/** What the lord's farm yields, as icon and plot count. Empty until the game has loaded. */
+	private readonly _now = nowSignal();
+	/** The lord's stores, as icon and amount, growing with the farm's production. */
 	protected readonly resources = computed(() => {
 		this.activeLanguage();
-		const counts = this._session.resourceCounts();
+		const game = this._session.game();
 
-		return counts
-			? RESOURCES.map((resource) => ({
-					...resource,
-					count: counts[resource.id],
-					label: this._translateService.translate(resource.name)(),
-				}))
-			: [];
+		if (!game) {
+			return [];
+		}
+
+		const now = this._now();
+		const buildings = game.village.buildings ?? {};
+		const levels = game.farm.levels ?? {};
+		const amounts = stockAt(game.stock, game.farm.plots, levels, buildings, now);
+		const cap = capacity(buildings, now);
+		const perHour = productionPerHour(game.farm.plots, levels, now);
+		const t = (text: string) => this._translateService.translate(text)();
+
+		return RESOURCES.map((resource) => {
+			const count = Math.floor(amounts[resource.id]);
+			const label = t(resource.name);
+
+			return {
+				...resource,
+				count,
+				label,
+				full: count >= cap[resource.id],
+				title: `${label}: ${count} / ${cap[resource.id]}, +${perHour[resource.id]} ${t('за годину')}`,
+			};
+		});
 	});
 	protected readonly resourcesLabel = computed(() => {
 		this.activeLanguage();

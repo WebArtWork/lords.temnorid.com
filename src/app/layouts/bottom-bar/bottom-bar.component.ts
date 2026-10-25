@@ -20,10 +20,10 @@ import { SessionService } from '../../feature/session/session.service';
 						routerLinkActive="bottom-bar__link--active"
 						ariaCurrentWhenActive="page"
 					>
-						<span class="material-symbols-outlined text-[24px]" aria-hidden="true">{{
+						<span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{
 							place.icon
 						}}</span>
-						<span class="text-xs font-semibold" [translate]="place.label">{{
+						<span class="text-sm font-semibold" [translate]="place.label">{{
 							place.label
 						}}</span>
 					</a>
@@ -39,11 +39,10 @@ import { SessionService } from '../../feature/session/session.service';
 
 		.bottom-bar__link {
 			display: flex;
-			min-height: 3.5rem;
-			flex-direction: column;
+			min-height: 2.75rem;
 			align-items: center;
 			justify-content: center;
-			gap: 0.125rem;
+			gap: 0.375rem;
 			color: var(--c-text-muted);
 		}
 
