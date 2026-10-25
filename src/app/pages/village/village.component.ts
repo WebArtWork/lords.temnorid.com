@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
+import { BuildingId } from '../../feature/building/building.interface';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { generateVillage } from '../../feature/village/village.generator';
 import { VillageMapComponent } from '../../feature/village/village-map.component';
@@ -21,6 +22,7 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 					[map]="map()!"
 					[element]="state.element"
 					[fill]="true"
+					[buildings]="state.village.buildings ?? {}"
 					[(selected)]="selected"
 				/>
 			</section>
@@ -62,7 +64,7 @@ export class VillageComponent {
 	constructor() {
 		void this._load();
 
-		// Picking a free place opens what can stand there; closing the modal lets go of the place.
+		// A built place opens its building; a free one opens what can stand there.
 		effect(() => {
 			const slot = this.selected();
 
@@ -73,13 +75,29 @@ export class VillageComponent {
 	}
 
 	private _openSlot(slot: number) {
+		const buildings = this.state()?.village.buildings ?? {};
+
+		if (buildings[slot]) {
+			void this._router.navigate(['/building', slot]);
+			return;
+		}
+
 		this._modal.show({
 			component: VillageSlotModalComponent,
-			size: 'small',
+			size: 'big',
 			slot,
+			built: Object.values(buildings).map((building) => building.type),
+			build: (type: BuildingId) => this._build(slot, type),
 			ariaLabelledBy: 'village-slot-modal-title',
+			// Closing lets go of the place.
 			onClose: () => this.selected.set(null),
 		});
+	}
+
+	/** Raises the building, then opens its page. */
+	private async _build(slot: number, type: BuildingId) {
+		await this._game.build(slot, type);
+		await this._router.navigate(['/building', slot]);
 	}
 
 	private async _load() {

@@ -1,4 +1,5 @@
 import { computed, inject, Service, signal } from '@angular/core';
+import { BuildingId, VillageBuilding } from '../building/building.interface';
 import { ElementId } from '../element/element.interface';
 import { FARM_LAYOUT, farmResourceCounts, generateFarmPlots } from '../farm/farm.generator';
 import { FarmSave } from '../farm/farm.interface';
@@ -84,6 +85,27 @@ export class GameService {
 		this.game.set(this._cache);
 
 		return this._cache;
+	}
+
+	/** Raises a building on a free village place, at level 1, and saves it. */
+	async build(slot: number, type: BuildingId): Promise<void> {
+		const game = this._cache;
+
+		if (!game) {
+			throw new Error('No game loaded.');
+		}
+
+		const building: VillageBuilding = { type, level: 1 };
+
+		await this._progress.setBuilding(game.uid, slot, building);
+		this._cache = {
+			...game,
+			village: {
+				...game.village,
+				buildings: { ...game.village.buildings, [slot]: building },
+			},
+		};
+		this.game.set(this._cache);
 	}
 
 	async signOut() {

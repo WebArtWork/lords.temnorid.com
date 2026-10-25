@@ -1,10 +1,8 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
-import { ModalService } from '@wawjs/ngx-ui';
 import { generateFarm } from '../../feature/farm/farm.generator';
 import { FarmMapComponent } from '../../feature/farm/farm-map.component';
-import { FarmPlotModalComponent } from '../../feature/farm/farm-plot-modal.component';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { GameHeaderComponent } from '../../layouts/game-header/game-header.component';
 
@@ -40,7 +38,6 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 export class FarmComponent {
 	private readonly _game = inject(GameService);
 	private readonly _router = inject(Router);
-	private readonly _modal = inject(ModalService);
 
 	protected readonly state = signal<GameState | null>(null);
 	protected readonly error = signal(false);
@@ -52,26 +49,15 @@ export class FarmComponent {
 			? generateFarm(state.farm.seed, state.element, state.region, state.farm.plots)
 			: null;
 	});
-	protected readonly selectedPlot = computed(
-		() => this.state()?.farm.plots.find((plot) => plot.id === this.selected()) ?? null,
-	);
 	constructor() {
 		void this._load();
 
-		// Picking a plot opens what it yields; closing the modal lets go of the plot.
+		// Picking a plot opens its own page, where it will be worked and improved.
 		effect(() => {
-			const plot = this.selectedPlot();
+			const plot = this.selected();
 
-			if (plot) {
-				untracked(() =>
-					this._modal.show({
-						component: FarmPlotModalComponent,
-						size: 'small',
-						plot,
-						ariaLabelledBy: 'farm-plot-modal-title',
-						onClose: () => this.selected.set(null),
-					}),
-				);
+			if (plot !== null) {
+				void this._router.navigate(['/plot', plot]);
 			}
 		});
 	}

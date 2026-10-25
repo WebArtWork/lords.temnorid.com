@@ -1,5 +1,7 @@
 import { Component, computed, inject, input, model } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
+import { BUILDING_BY_ID } from '../building/building.data';
+import { VillageBuilding } from '../building/building.interface';
 import { ElementId } from '../element/element.interface';
 import { VillageMap } from './village.interface';
 
@@ -100,7 +102,7 @@ import { VillageMap } from './village.interface';
 					[attr.transform]="'translate(' + slot.x + ' ' + slot.y + ')'"
 					role="button"
 					tabindex="0"
-					[attr.aria-label]="labels().slot + ' ' + slot.id"
+					[attr.aria-label]="slotLabel(slot.id)"
 					[attr.aria-pressed]="slot.id === selected()"
 					(click)="toggle(slot.id)"
 					(keydown.enter)="toggle(slot.id)"
@@ -109,8 +111,23 @@ import { VillageMap } from './village.interface';
 					<ellipse class="village-slot__ring" cx="0" cy="0" rx="46" ry="30" />
 					<!-- Ground under the plot hides the road that leads into it. -->
 					<ellipse cx="0" cy="0" rx="40" ry="25" [attr.fill]="palette().ground" />
-					<ellipse class="village-slot__plot" cx="0" cy="0" rx="40" ry="25" />
-					<path class="village-slot__plus" d="M-8 0 H8 M0 -8 V8" />
+					@if (buildings()[slot.id]; as building) {
+						<!-- A low-poly hall: lit west wall, shaded east wall, two-tone roof. -->
+						<ellipse cx="0" cy="14" rx="40" ry="11" fill="rgb(0 0 0 / 0.22)" />
+						<path d="M-30 16 L-30 -6 L0 -14 L0 10 Z" fill="#efe3c6" />
+						<path d="M0 -14 L30 -6 L30 16 L0 10 Z" fill="#cbb994" />
+						<path d="M-36 -4 L-4 -36 L0 -14 L-30 -6 Z" fill="#a8583a" />
+						<path d="M-4 -36 L36 -4 L30 -6 L0 -14 Z" fill="#7a3a24" />
+						<circle class="village-building__badge" cx="0" cy="1" r="15" />
+						<text class="material-symbols-outlined village-building__icon" x="0" y="1">{{ iconOf(building) }}</text>
+						<g transform="translate(28 -26)">
+							<circle class="village-building__level" r="11" />
+							<text class="village-building__level-text" y="1">{{ building.level }}</text>
+						</g>
+					} @else {
+						<ellipse class="village-slot__plot" cx="0" cy="0" rx="40" ry="25" />
+						<path class="village-slot__plus" d="M-8 0 H8 M0 -8 V8" />
+					}
 				</g>
 			}
 		</svg>
@@ -127,6 +144,33 @@ import { VillageMap } from './village.interface';
 		.village-slot {
 			cursor: pointer;
 			outline: none;
+		}
+
+		.village-building__badge {
+			fill: #fff8e8;
+			stroke: #7b5a35;
+			stroke-width: 2;
+		}
+
+		.village-building__icon {
+			fill: #5a3a1c;
+			font-size: 20px;
+			text-anchor: middle;
+			dominant-baseline: central;
+		}
+
+		.village-building__level {
+			fill: #e4a74a;
+			stroke: #5a3a1c;
+			stroke-width: 2;
+		}
+
+		.village-building__level-text {
+			fill: #1d140d;
+			font-size: 13px;
+			font-weight: 700;
+			text-anchor: middle;
+			dominant-baseline: central;
 		}
 
 		.village-slot__ring {
@@ -186,6 +230,8 @@ export class VillageMapComponent {
 	readonly map = input.required<VillageMap>();
 	readonly element = input.required<ElementId>();
 	readonly selected = model<number | null>(null);
+	/** What stands on each place, by place id. */
+	readonly buildings = input<Record<string, VillageBuilding>>({});
 	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
 	readonly fill = input(false);
 
@@ -201,8 +247,23 @@ export class VillageMapComponent {
 		return {
 			map: this._translateService.translate('Мапа поселення')(),
 			slot: this._translateService.translate('Вільне місце')(),
+			level: this._translateService.translate('рівень')(),
 		};
 	});
+
+	protected iconOf(building: VillageBuilding): string {
+		return BUILDING_BY_ID[building.type]?.icon ?? 'home';
+	}
+
+	protected slotLabel(id: number): string {
+		this._languageService.language();
+		const building = this.buildings()[id];
+		const type = building && BUILDING_BY_ID[building.type];
+
+		return type
+			? `${this._translateService.translate(type.name)()}, ${this.labels().level} ${building.level}`
+			: `${this.labels().slot} ${id}`;
+	}
 
 	protected toggle(id: number) {
 		this.selected.update((current) => (current === id ? null : id));

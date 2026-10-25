@@ -8,20 +8,30 @@ import { LanguageService } from '@wawjs/ngx-translate';
 import { environment } from '../environments/environment';
 import { ProjectSeoService } from './feature/company/project-seo.service';
 import { FooterComponent } from './layouts/footer/footer.component';
+import { BottomBarComponent } from './layouts/bottom-bar/bottom-bar.component';
 import { TopbarComponent } from './layouts/topbar/topbar.component';
 
 @Component({
 	selector: 'app-root',
-	imports: [RouterOutlet, TopbarComponent, FooterComponent],
+	imports: [BottomBarComponent, FooterComponent, RouterOutlet, TopbarComponent],
 	template: `
-		<div class="flex flex-col" [class.min-h-screen]="!inGame()" [class.h-dvh]="inGame()">
+		<div
+			class="flex flex-col"
+			[class.min-h-screen]="!fitsWindow()"
+			[class.h-dvh]="fitsWindow()"
+		>
 			<app-topbar />
-			<main class="flex-1" [class.min-h-0]="inGame()" [class.overflow-hidden]="inGame()">
+			<main
+				class="flex-1"
+				[class.min-h-0]="fitsWindow()"
+				[class.overflow-hidden]="fitsWindow()"
+			>
 				<router-outlet />
 			</main>
 			@if (!inGame()) {
 				<app-footer />
 			}
+			<app-bottom-bar />
 		</div>
 	`,
 })
@@ -39,10 +49,13 @@ export class App {
 		{ initialValue: this._router.url },
 	);
 	/**
-	 * The lord's places are play screens: drawn to fit the window so they never scroll, with no
-	 * footer under them.
+	 * In-game screens: the lord's places, their buildings and plots. No footer under them.
 	 */
 	protected readonly inGame = computed(() =>
+		/^\/(world|village|farm|building|plot)(\/|\?|#|$)/.test(this._url()),
+	);
+	/** The world, the village and the farm are drawn to fit the window, so they never scroll. */
+	protected readonly fitsWindow = computed(() =>
 		/^\/(world|village|farm)(\/|\?|#|$)/.test(this._url()),
 	);
 

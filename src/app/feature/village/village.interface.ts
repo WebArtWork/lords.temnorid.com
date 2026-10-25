@@ -1,3 +1,4 @@
+import { VillageBuilding } from '../building/building.interface';
 import { Point } from '../map/map-geometry';
 
 /** A place where a building can stand. Coordinates are in map units (see VILLAGE_WIDTH/HEIGHT). */
@@ -16,6 +17,8 @@ export interface VillageSave {
 	seed: number;
 	layout: number;
 	slots: VillageSlot[];
+	/** What stands on each place, by place id. Places not listed are free. */
+	buildings?: Record<string, VillageBuilding>;
 }
 
 export interface VillageTree extends Point {

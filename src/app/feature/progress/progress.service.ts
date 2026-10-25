@@ -4,6 +4,7 @@ import { ElementId } from '../element/element.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { RegionId } from '../region/region.interface';
 import { FarmSave } from '../farm/farm.interface';
+import { VillageBuilding } from '../building/building.interface';
 import { VillageSave } from '../village/village.interface';
 
 /** A player's Lords save. */
@@ -62,6 +63,15 @@ export class ProgressService {
 
 	async setMaps(uid: string, maps: Pick<LordsProgress, 'village' | 'farm'>) {
 		await this._merge(uid, maps);
+	}
+
+	/** Puts a building on a village place. Merges, so the rest of the village save stays. */
+	async setBuilding(uid: string, slot: number, building: VillageBuilding) {
+		await setDoc(
+			this._ref(uid),
+			{ village: { buildings: { [slot]: building } }, updatedAt: serverTimestamp() },
+			{ merge: true },
+		);
 	}
 
 	private async _saveFirstLocation(uid: string, firstLocation: LordsProgress['firstLocation']) {

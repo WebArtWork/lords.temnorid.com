@@ -3,9 +3,11 @@
 		class="flex min-h-16 w-full flex-wrap items-center justify-between gap-x-6 gap-y-2 overflow-visible px-4 py-3 sm:px-6 lg:px-8"
 	>
 		<!-- Signed in, the wordmark opens the world; signed out, the sign-in page. -->
+		<!-- On phones a signed-in player finds the wordmark's world link in the bottom bar. -->
 		<a
 			[translate]="{ ariaLabel: user() ? 'Відкрити світ' : 'Перейти на головну сторінку' }"
 			class="theme-focus t-wordmark rounded-md text-xl sm:text-2xl"
+			[class]="user() ? 'hidden md:inline' : ''"
 			[routerLink]="user() ? '/world' : '/'"
 		>
 			<span translate>Лорди</span>
@@ -13,7 +15,7 @@
 
 		@if (user(); as user) {
 			<nav
-				class="order-last flex w-full gap-2 md:order-none md:w-auto md:flex-1"
+				class="hidden gap-2 md:flex md:flex-1"
 				[translate]="{ ariaLabel: 'Володіння лорда' }"
 			>
 				@for (place of places; track place.path) {
@@ -33,7 +35,7 @@
 
 			@if (resources().length) {
 				<ul
-					class="topbar-resources order-last flex w-full flex-wrap items-center gap-x-3 gap-y-1 md:order-none md:w-auto"
+					class="topbar-resources flex flex-wrap items-center gap-x-3 gap-y-1"
 					[attr.aria-label]="resourcesLabel()"
 				>
 					@for (resource of resources(); track resource.id) {

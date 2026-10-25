@@ -7,7 +7,7 @@ import {
 
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
 import {
 	buildAbsoluteUrl,
 	buildSeoTitleSuffix,
@@ -94,7 +94,7 @@ export const appConfig: ApplicationConfig = {
 				shadowMd: '0 10px 30px rgba(0, 0, 0, 0.55)',
 			},
 		}),
-		provideRouter(routes),
+		provideRouter(routes, withComponentInputBinding()),
 		provideClientHydration(withEventReplay()),
 		provideTranslate({
 			defaultLanguage: environment.defaultLanguage,

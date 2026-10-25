@@ -42,6 +42,23 @@ export const routes: Routes = [
 		loadComponent: () => import('./pages/farm/farm.component').then((m) => m.FarmComponent),
 	},
 	{
+		path: 'building/:slot',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/building'),
+		},
+		loadComponent: () =>
+			import('./pages/building/building.component').then((m) => m.BuildingComponent),
+	},
+	{
+		path: 'plot/:id',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/plot'),
+		},
+		loadComponent: () => import('./pages/plot/plot.component').then((m) => m.PlotComponent),
+	},
+	{
 		path: 'world',
 		canActivate: [authGuard],
 		data: {

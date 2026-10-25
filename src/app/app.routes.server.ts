@@ -23,6 +23,14 @@ export const serverRoutes: ServerRoute[] = [
 		renderMode: RenderMode.Client,
 	},
 	{
+		path: 'building/:slot',
+		renderMode: RenderMode.Client,
+	},
+	{
+		path: 'plot/:id',
+		renderMode: RenderMode.Client,
+	},
+	{
 		path: '**',
 		renderMode: RenderMode.Prerender,
 	},

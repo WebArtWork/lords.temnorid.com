@@ -1,14 +1,14 @@
-import { isPlatformBrowser, NgOptimizedImage } from '@angular/common';
-import { Component, computed, effect, inject, Injector, PLATFORM_ID, signal } from '@angular/core';
+import { NgOptimizedImage } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { ThemeService } from '@wawjs/ngx-ui';
 import type { Language } from '@wawjs/ngx-translate';
 import type { AppLanguage } from '../../../environments/environment.prod';
-import type { FirebaseService } from '../../feature/firebase/firebase.service';
-import type { GameService } from '../../feature/game/game.service';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
 import { RESOURCES } from '../../feature/resource/resource.data';
+import { SessionService } from '../../feature/session/session.service';
+import { PLACES } from './places';
 
 @Component({
 	selector: 'app-topbar',
@@ -21,19 +21,17 @@ export class TopbarComponent {
 	private readonly _themeService = inject(ThemeService);
 	private readonly _languageService = inject(LanguageService);
 	private readonly _router = inject(Router);
-	private readonly _firebase = signal<FirebaseService | null>(null);
-	private readonly _game = signal<GameService | null>(null);
+	private readonly _session = inject(SessionService);
 
-	/** The signed-in player, once Firebase has loaded. Null on the server and when signed out. */
-	protected readonly user = computed(() => this._firebase()?.user() ?? null);
+	protected readonly user = this._session.user;
 	/** The lord's name, or the player's own name until they have chosen a lord. */
 	protected readonly playerName = computed(
-		() => this._game()?.game()?.lordName ?? this.user()?.displayName ?? '',
+		() => this._session.game()?.lordName ?? this.user()?.displayName ?? '',
 	);
 	/** What the lord's farm yields, as icon and plot count. Empty until the game has loaded. */
 	protected readonly resources = computed(() => {
 		this.activeLanguage();
-		const counts = this._game()?.resourceCounts();
+		const counts = this._session.resourceCounts();
 
 		return counts
 			? RESOURCES.map((resource) => ({
@@ -47,11 +45,7 @@ export class TopbarComponent {
 		this.activeLanguage();
 		return this._translateService.translate('Ресурси угідь')();
 	});
-	/** The lord's places. The world opens from the wordmark. */
-	protected readonly places = [
-		{ path: '/village', label: 'Поселення', icon: 'cottage' },
-		{ path: '/farm', label: 'Угіддя', icon: 'agriculture' },
-	];
+	protected readonly places = PLACES;
 	protected readonly profileLabel = computed(() => {
 		this.activeLanguage();
 		return this._translateService.translate('Профіль')();
@@ -83,30 +77,6 @@ export class TopbarComponent {
 		this.activeLanguage();
 		return `${this._translateService.translate('Перемкнути мову на')()} ${this.getNextLanguage().nativeName}`;
 	});
-
-	constructor() {
-		if (isPlatformBrowser(inject(PLATFORM_ID))) {
-			const injector = inject(Injector);
-
-			// Loaded on demand, as in authGuard, so Firebase stays out of the initial bundle.
-			void Promise.all([
-				import('../../feature/firebase/firebase.service'),
-				import('../../feature/game/game.service'),
-			]).then(([{ FirebaseService }, { GameService }]) => {
-				this._firebase.set(injector.get(FirebaseService));
-				this._game.set(injector.get(GameService));
-			});
-
-			// Loads the lord once someone signs in, so their name shows on every page.
-			effect(() => {
-				const game = this._game();
-
-				if (this.user() && game) {
-					game.load().catch((error) => console.error(error));
-				}
-			});
-		}
-	}
 
 	protected toggleMode() {
 		const nextMode = this.mode() === 'dark' ? 'light' : 'dark';
