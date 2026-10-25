@@ -188,7 +188,11 @@ export class VillageSlotModalComponent {
 		return BUILDING_CATEGORIES.map((category) => ({
 			...category,
 			options: BUILDINGS.filter(
-				(type) => type.category === category.id && !!type.center === this.center,
+				// One-of-a-kind buildings already in the village are left out altogether.
+				(type) =>
+					type.category === category.id &&
+					!!type.center === this.center &&
+					(type.repeatable || !present.has(type.id)),
 			).map((type) => {
 				const lacking = shortfall(stock, type.cost);
 
@@ -206,7 +210,7 @@ export class VillageSlotModalComponent {
 					),
 					time: formatDuration(buildSeconds(type, 1, hall)),
 					blocked:
-						this._blocked(type, present, finished, busyUntil, now, t) ||
+						this._blocked(type, finished, busyUntil, now, t) ||
 						(Object.keys(lacking).length ? t('Бракує ресурсів') : ''),
 				};
 			}),
@@ -230,16 +234,11 @@ export class VillageSlotModalComponent {
 	/** Why a building cannot be raised here yet, or an empty string when it can. */
 	private _blocked(
 		type: BuildingType,
-		present: Set<BuildingId>,
 		finished: Set<BuildingId>,
 		busyUntil: number | null,
 		now: number,
 		t: (text: string) => string,
 	): string {
-		if (!type.repeatable && present.has(type.id)) {
-			return t('Вже збудовано');
-		}
-
 		const missing = type.requires.filter((id) => !finished.has(id));
 
 		if (missing.length) {
