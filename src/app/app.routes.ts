@@ -67,6 +67,15 @@ export const routes: Routes = [
 		loadComponent: () => import('./pages/city/city.component').then((m) => m.CityComponent),
 	},
 	{
+		path: 'dungeons',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/dungeons'),
+		},
+		loadComponent: () =>
+			import('./pages/dungeons/dungeons.component').then((m) => m.DungeonsComponent),
+	},
+	{
 		path: 'world',
 		canActivate: [authGuard],
 		data: {

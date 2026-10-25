@@ -6,6 +6,7 @@ import { RegionId } from '../region/region.interface';
 import { FarmSave } from '../farm/farm.interface';
 import { Construction, VillageBuilding } from '../building/building.interface';
 import { StockSave } from '../economy/economy';
+import { HeroSave } from '../dungeon/hero';
 import { VillageSave } from '../village/village.interface';
 
 /** A player's Lords save. */
@@ -20,6 +21,8 @@ export interface LordsProgress {
 	};
 	/** The lord's stores at one moment; see economy.ts. */
 	stock?: StockSave;
+	/** The lord's hero, created the first time the game opens. */
+	hero?: HeroSave;
 	/** Generated maps, saved the first time the game opens and never regenerated. */
 	village?: VillageSave;
 	farm?: FarmSave;
@@ -69,6 +72,16 @@ export class ProgressService {
 	}
 
 	/** Saves the stores, e.g. the starting stock of a lord who has none yet. */
+	/** Saves the hero, and the stores when the hero has just brought loot home. */
+	async setHero(uid: string, hero: HeroSave, stock?: StockSave) {
+		// Set, not merged, so a collected expedition really goes away.
+		await setDoc(
+			this._ref(uid),
+			{ hero, ...(stock ? { stock } : {}), updatedAt: serverTimestamp() },
+			{ mergeFields: stock ? ['hero', 'stock', 'updatedAt'] : ['hero', 'updatedAt'] },
+		);
+	}
+
 	async setStock(uid: string, stock: StockSave) {
 		await this._merge(uid, { stock });
 	}

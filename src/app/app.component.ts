@@ -58,10 +58,11 @@ export class App {
 		{ initialValue: this._router.url },
 	);
 	/**
-	 * In-game screens: the lord's places, their buildings, plots and towns. No footer under them.
+	 * In-game screens: the lord's places, their buildings, plots, towns and dungeons. No footer
+	 * under them.
 	 */
 	protected readonly inGame = computed(() =>
-		/^\/(world|village|farm|building|plot|city)(\/|\?|#|$)/.test(this._url()),
+		/^\/(world|village|farm|building|plot|city|dungeons)(\/|\?|#|$)/.test(this._url()),
 	);
 	/** The world, the village and the farm are drawn to fit the window, so they never scroll. */
 	protected readonly fitsWindow = computed(() =>

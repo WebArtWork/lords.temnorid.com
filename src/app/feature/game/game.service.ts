@@ -9,8 +9,11 @@ import {
 	levelAt,
 	runningUpgrade,
 } from '../building/building.timing';
+import { DUNGEON_BY_ID, DungeonId } from '../dungeon/dungeon.data';
+import { cannotGo, HeroSave, heroHealth, heroStatus, newHero, rollLoot } from '../dungeon/hero';
 import {
 	Amounts,
+	capacity,
 	PLOT_COST,
 	PLOT_MAX_LEVEL,
 	shortfall,
@@ -38,6 +41,7 @@ export interface GameState {
 	village: VillageSave;
 	farm: FarmSave;
 	stock: StockSave;
+	hero: HeroSave;
 }
 
 /**
@@ -94,6 +98,13 @@ export class GameService {
 			await this._progress.setStock(user.uid, stock);
 		}
 
+		// Every lord has a hero from the start, as in Travian.
+		const hero = progress.hero ?? newHero(Date.now());
+
+		if (!progress.hero) {
+			await this._progress.setHero(user.uid, hero);
+		}
+
 		this._cache = {
 			uid: user.uid,
 			lordName: progress.lord!.name!,
@@ -102,6 +113,7 @@ export class GameService {
 			village: progress.village ?? maps.village!,
 			farm: progress.farm ?? maps.farm!,
 			stock,
+			hero,
 		};
 
 		this.game.set(this._cache);
@@ -245,6 +257,57 @@ export class GameService {
 	private _update(game: GameState) {
 		this._cache = game;
 		this.game.set(game);
+	}
+
+	/** Sends the hero into a dungeon. The loot is rolled now and collected on return. */
+	async sendHero(id: DungeonId): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const dungeon = DUNGEON_BY_ID[id];
+
+		if (cannotGo(game.hero, dungeon, now)) {
+			throw new Error('The hero cannot go.');
+		}
+
+		const hero: HeroSave = {
+			health: heroHealth(game.hero, now) - dungeon.damage,
+			at: now,
+			expedition: {
+				dungeon: id,
+				startedAt: now,
+				endsAt: now + dungeon.minutes * 60_000,
+				loot: rollLoot(dungeon),
+			},
+		};
+
+		await this._progress.setHero(game.uid, hero);
+		this._update({ ...game, hero });
+	}
+
+	/** Puts what the returned hero carried into the stores, up to their capacity. */
+	async collectLoot(): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const expedition = game.hero.expedition;
+
+		if (!expedition || heroStatus(game.hero, now) !== 'back') {
+			throw new Error('The hero has nothing to hand over.');
+		}
+
+		const cap = capacity(game.village.buildings ?? {}, now);
+		const available = this.stockNow(game, now);
+		const amounts = Object.fromEntries(
+			Object.entries(available).map(([id, amount]) => {
+				const gained = expedition.loot[id as keyof Amounts] ?? 0;
+
+				return [id, Math.max(amount, Math.min(cap[id as keyof Amounts], amount + gained))];
+			}),
+		) as Amounts;
+		const stock: StockSave = { amounts, at: now };
+		const hero: HeroSave = { health: heroHealth(game.hero, now), at: now, expedition: null };
+
+		await this._progress.setHero(game.uid, hero, stock);
+		this._update({ ...game, hero, stock });
 	}
 
 	async signOut() {

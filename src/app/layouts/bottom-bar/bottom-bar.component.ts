@@ -10,7 +10,7 @@ import { SessionService } from '../../feature/session/session.service';
 	template: `
 		@if (user()) {
 			<nav
-				class="bottom-bar t-bar grid grid-cols-3 md:hidden"
+				class="bottom-bar t-bar grid grid-cols-4 md:hidden"
 				[translate]="{ ariaLabel: 'Володіння лорда' }"
 			>
 				@for (place of places; track place.path) {
@@ -20,10 +20,10 @@ import { SessionService } from '../../feature/session/session.service';
 						routerLinkActive="bottom-bar__link--active"
 						ariaCurrentWhenActive="page"
 					>
-						<span class="material-symbols-outlined text-[22px]" aria-hidden="true">{{
+						<span class="material-symbols-outlined text-[20px]" aria-hidden="true">{{
 							place.icon
 						}}</span>
-						<span class="text-sm font-semibold" [translate]="place.label">{{
+						<span class="text-xs font-semibold sm:text-sm" [translate]="place.label">{{
 							place.label
 						}}</span>
 					</a>
@@ -42,7 +42,7 @@ import { SessionService } from '../../feature/session/session.service';
 			min-height: 2.75rem;
 			align-items: center;
 			justify-content: center;
-			gap: 0.375rem;
+			gap: 0.25rem;
 			color: var(--c-text-muted);
 		}
 
@@ -57,5 +57,6 @@ export class BottomBarComponent {
 		{ path: '/world', label: 'Лорди', icon: 'public' },
 		{ path: '/village', label: 'Поселення', icon: 'cottage' },
 		{ path: '/farm', label: 'Угіддя', icon: 'agriculture' },
+		{ path: '/dungeons', label: 'Темниці', icon: 'skull' },
 	];
 }

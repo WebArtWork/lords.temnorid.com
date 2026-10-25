@@ -2,4 +2,5 @@
 export const PLACES = [
 	{ path: '/village', label: 'Поселення', icon: 'cottage' },
 	{ path: '/farm', label: 'Угіддя', icon: 'agriculture' },
+	{ path: '/dungeons', label: 'Темниці', icon: 'skull' },
 ];
