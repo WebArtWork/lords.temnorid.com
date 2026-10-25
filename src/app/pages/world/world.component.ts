@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
@@ -82,6 +82,9 @@ export class WorldComponent {
 	protected readonly centre = signal<Point>({ x: 0, y: 0 });
 	protected readonly selected = signal<Point>({ x: 0, y: 0 });
 	protected readonly zoom = signal(0);
+	/** A tile to open on, from the link (e.g. a town page's "Show on the map"). */
+	readonly x = input<string>();
+	readonly y = input<string>();
 
 	constructor() {
 		void this._load();
@@ -116,6 +119,14 @@ export class WorldComponent {
 	}
 
 	protected openTile(point: Point) {
+		// A town has its own page.
+		const city = cityAt(point.x, point.y);
+
+		if (city) {
+			void this._router.navigate(['/city', city.id]);
+			return;
+		}
+
 		const info = this._describe(point);
 
 		if (info) {
@@ -228,7 +239,15 @@ export class WorldComponent {
 			}
 
 			this.world.set(await this._world.load(game));
-			this.goHome();
+
+			const x = Number(this.x());
+			const y = Number(this.y());
+
+			if (this.x() && this.y() && Number.isFinite(x) && Number.isFinite(y)) {
+				this._goTo({ x: Math.round(x), y: Math.round(y) });
+			} else {
+				this.goHome();
+			}
 		} catch (error) {
 			console.error(error);
 			this.error.set(true);

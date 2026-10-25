@@ -10,7 +10,7 @@ import { SessionService } from '../../feature/session/session.service';
 	template: `
 		@if (user()) {
 			<nav
-				class="bottom-bar t-bar sticky bottom-0 z-40 grid grid-cols-3 md:hidden"
+				class="bottom-bar t-bar grid grid-cols-3 md:hidden"
 				[translate]="{ ariaLabel: 'Володіння лорда' }"
 			>
 				@for (place of places; track place.path) {

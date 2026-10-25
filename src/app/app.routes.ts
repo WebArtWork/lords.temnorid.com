@@ -59,6 +59,14 @@ export const routes: Routes = [
 		loadComponent: () => import('./pages/plot/plot.component').then((m) => m.PlotComponent),
 	},
 	{
+		path: 'city/:id',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/city'),
+		},
+		loadComponent: () => import('./pages/city/city.component').then((m) => m.CityComponent),
+	},
+	{
 		path: 'world',
 		canActivate: [authGuard],
 		data: {

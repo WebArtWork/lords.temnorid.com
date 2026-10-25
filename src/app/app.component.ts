@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
@@ -15,23 +15,21 @@ import { TopbarComponent } from './layouts/topbar/topbar.component';
 	selector: 'app-root',
 	imports: [BottomBarComponent, FooterComponent, RouterOutlet, TopbarComponent],
 	template: `
-		<div
-			class="flex flex-col"
-			[class.min-h-screen]="!fitsWindow()"
-			[class.h-dvh]="fitsWindow()"
-		>
-			<app-topbar />
+		<!-- The bars stay put; only the page between them scrolls (or, on play screens, fits). -->
+		<div class="flex h-dvh flex-col">
+			<app-topbar class="shrink-0" />
 			<main
-				class="flex-1"
-				[class.min-h-0]="fitsWindow()"
+				#content
+				class="min-h-0 flex-1"
+				[class.overflow-y-auto]="!fitsWindow()"
 				[class.overflow-hidden]="fitsWindow()"
 			>
 				<router-outlet />
 			</main>
 			@if (!inGame()) {
-				<app-footer />
+				<app-footer class="shrink-0" />
 			}
-			<app-bottom-bar />
+			<app-bottom-bar class="shrink-0" />
 		</div>
 	`,
 })
@@ -49,17 +47,25 @@ export class App {
 		{ initialValue: this._router.url },
 	);
 	/**
-	 * In-game screens: the lord's places, their buildings and plots. No footer under them.
+	 * In-game screens: the lord's places, their buildings, plots and towns. No footer under them.
 	 */
 	protected readonly inGame = computed(() =>
-		/^\/(world|village|farm|building|plot)(\/|\?|#|$)/.test(this._url()),
+		/^\/(world|village|farm|building|plot|city)(\/|\?|#|$)/.test(this._url()),
 	);
 	/** The world, the village and the farm are drawn to fit the window, so they never scroll. */
 	protected readonly fitsWindow = computed(() =>
 		/^\/(world|village|farm)(\/|\?|#|$)/.test(this._url()),
 	);
 
+	private readonly _content = viewChild<ElementRef<HTMLElement>>('content');
+
 	constructor() {
+		// The page scrolls inside <main>, not the window, so start each new page at its top.
+		effect(() => {
+			this._url();
+			this._content()?.nativeElement.scrollTo?.({ top: 0 });
+		});
+
 		this._canonicalService.initialize();
 		this._projectSeo.initialize();
 
