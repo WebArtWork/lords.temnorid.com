@@ -1,0 +1,66 @@
+/**
+ * Factions are made by the game, not by players: Travian's alliances, but every lord picks the one
+ * they like. The first two come from the Temnorid lore (temnorid.com, lore/factions.json, same
+ * slugs); the other two grow from places in the same stories, the Second River and the Burned
+ * Forest. No bonuses yet: for now a faction is who you stand with.
+ */
+export type FactionId = 'village-of-names' | 'ember-keepers' | 'river-ferrymen' | 'ash-wardens';
+
+export interface Faction {
+	id: FactionId;
+	/** Ukrainian source text; translated through i18n. */
+	name: string;
+	summary: string;
+	/** What the faction wants. */
+	goal: string;
+	emblem: string;
+	/** Material Symbols icon and the faction's colour. */
+	icon: string;
+	color: string;
+}
+
+export const FACTIONS: Faction[] = [
+	{
+		id: 'village-of-names',
+		name: 'Село імен',
+		summary: "Люди Села з каменю, які дають кожній стіні ім'я. Їх веде старшина Олена.",
+		goal: 'Зберегти кожну стіну названою, а гору теплою.',
+		emblem: "Сірий камінь із вирізаним ім'ям на грубій вовні.",
+		icon: 'foundation',
+		color: '#8c8579',
+	},
+	{
+		id: 'ember-keepers',
+		name: 'Хранителі жару',
+		summary: 'Ті, хто проніс вогонь крізь довгу ніч у глиняних горщиках.',
+		goal: 'Щоб у селі ніколи не згас вогонь.',
+		emblem: 'Глиняний горщик із червоним жаром.',
+		icon: 'local_fire_department',
+		color: '#c4573a',
+	},
+	{
+		id: 'river-ferrymen',
+		name: 'Перевізники Другої річки',
+		summary:
+			'Човнярі й купці, що знають кожен брід. Друга річка колись забрала в них воза й людину, і відтоді вони її не бояться.',
+		goal: 'Щоб жоден берег не лишився без переправи, а жоден товар без покупця.',
+		emblem: 'Весло, схрещене з мотузкою, на синьому полотні.',
+		icon: 'sailing',
+		color: '#3f6f86',
+	},
+	{
+		id: 'ash-wardens',
+		name: 'Сторожа згарища',
+		summary:
+			'Мисливці й розвідники, що стережуть Згорілий ліс. Вони першими бачать, хто йде з темряви.',
+		goal: 'Щоб ніхто не підійшов до поселень непоміченим.',
+		emblem: 'Обвуглена гілка, з якої пробивається зелений паросток.',
+		icon: 'forest',
+		color: '#5d7d40',
+	},
+];
+
+export const FACTION_BY_ID = Object.fromEntries(FACTIONS.map((f) => [f.id, f])) as Record<
+	FactionId,
+	Faction
+>;

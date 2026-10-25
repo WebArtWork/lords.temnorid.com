@@ -4,6 +4,8 @@ import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ELEMENTS } from '../../feature/element/element.data';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
 import { GameService, GameState } from '../../feature/game/game.service';
+import { FactionPickerComponent } from '../../feature/faction/faction-picker.component';
+import { FactionId } from '../../feature/faction/faction.data';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
 import { SettingsComponent } from '../../feature/profile/settings.component';
 import { REGIONS } from '../../feature/region/region.data';
@@ -12,7 +14,13 @@ import { WorldService } from '../../feature/world/world.service';
 
 /** The player's account, their lord, and the site's language and theme. */
 @Component({
-	imports: [AvatarComponent, RouterLink, SettingsComponent, TranslateDirective],
+	imports: [
+		AvatarComponent,
+		FactionPickerComponent,
+		RouterLink,
+		SettingsComponent,
+		TranslateDirective,
+	],
 	template: `
 		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
 			@if (user(); as user) {
@@ -85,6 +93,30 @@ import { WorldService } from '../../feature/world/world.service';
 						}
 					</section>
 
+					@if (game()) {
+						<section class="t-card md:col-span-2" aria-labelledby="profile-faction">
+							<h2 id="profile-faction" class="t-item" translate>Фракція</h2>
+							<p class="mt-1 text-sm text-[var(--c-text-muted)]" translate>
+								Оберіть, з ким стоїте. Змінити вибір можна будь-коли.
+							</p>
+							<app-faction-picker
+								class="mt-4 block"
+								[chosen]="faction()"
+								[busy]="joining()"
+								(pick)="joinFaction($event)"
+							/>
+							@if (factionFailed()) {
+								<p
+									class="mt-3 text-sm text-[var(--c-secondary)]"
+									role="alert"
+									translate
+								>
+									Не вдалося змінити фракцію. Спробуйте ще раз.
+								</p>
+							}
+						</section>
+					}
+
 					<section class="t-card" aria-labelledby="profile-settings">
 						<h2 id="profile-settings" class="t-item" translate>Налаштування</h2>
 						<app-settings class="mt-3 block" />
@@ -151,6 +183,10 @@ export class ProfileComponent {
 	protected readonly game = signal<GameState | null>(null);
 	protected readonly village = signal<WorldVillage | null>(null);
 	protected readonly loading = signal(true);
+	/** From GameService, so a new choice shows at once. */
+	protected readonly faction = computed(() => this._game.game()?.faction ?? null);
+	protected readonly joining = signal(false);
+	protected readonly factionFailed = signal(false);
 	protected readonly error = signal(false);
 
 	/** The lord's choices as the Ukrainian source names; the template translates them. */
@@ -170,6 +206,20 @@ export class ProfileComponent {
 
 	constructor() {
 		void this._load();
+	}
+
+	protected async joinFaction(faction: FactionId) {
+		this.joining.set(true);
+		this.factionFailed.set(false);
+
+		try {
+			await this._game.chooseFaction(faction);
+		} catch (error) {
+			console.error(error);
+			this.factionFailed.set(true);
+		} finally {
+			this.joining.set(false);
+		}
 	}
 
 	protected async signOut() {

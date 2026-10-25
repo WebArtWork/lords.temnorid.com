@@ -10,6 +10,7 @@ import {
 	runningUpgrade,
 } from '../building/building.timing';
 import { DUNGEON_BY_ID, DungeonId } from '../dungeon/dungeon.data';
+import { FactionId } from '../faction/faction.data';
 import { cannotGo, HeroSave, heroHealth, heroStatus, newHero, rollLoot } from '../dungeon/hero';
 import {
 	Amounts,
@@ -42,6 +43,7 @@ export interface GameState {
 	farm: FarmSave;
 	stock: StockSave;
 	hero: HeroSave;
+	faction: FactionId | null;
 }
 
 /**
@@ -114,6 +116,7 @@ export class GameService {
 			farm: progress.farm ?? maps.farm!,
 			stock,
 			hero,
+			faction: progress.faction ?? null,
 		};
 
 		this.game.set(this._cache);
@@ -308,6 +311,14 @@ export class GameService {
 
 		await this._progress.setHero(game.uid, hero, stock);
 		this._update({ ...game, hero, stock });
+	}
+
+	/** Joins a faction; a lord can change sides at any time for now. */
+	async chooseFaction(faction: FactionId): Promise<void> {
+		const game = this._requireGame();
+
+		await this._progress.setFaction(game.uid, faction);
+		this._update({ ...game, faction });
 	}
 
 	async signOut() {

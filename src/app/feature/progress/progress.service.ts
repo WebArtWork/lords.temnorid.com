@@ -7,6 +7,7 @@ import { FarmSave } from '../farm/farm.interface';
 import { Construction, VillageBuilding } from '../building/building.interface';
 import { StockSave } from '../economy/economy';
 import { HeroSave } from '../dungeon/hero';
+import { FactionId } from '../faction/faction.data';
 import { VillageSave } from '../village/village.interface';
 
 /** A player's Lords save. */
@@ -21,6 +22,8 @@ export interface LordsProgress {
 	};
 	/** The lord's stores at one moment; see economy.ts. */
 	stock?: StockSave;
+	/** The game-made faction the lord stands with, chosen on the profile page. */
+	faction?: FactionId;
 	/** The lord's hero, created the first time the game opens. */
 	hero?: HeroSave;
 	/** Generated maps, saved the first time the game opens and never regenerated. */
@@ -80,6 +83,10 @@ export class ProgressService {
 			{ hero, ...(stock ? { stock } : {}), updatedAt: serverTimestamp() },
 			{ mergeFields: stock ? ['hero', 'stock', 'updatedAt'] : ['hero', 'updatedAt'] },
 		);
+	}
+
+	async setFaction(uid: string, faction: FactionId) {
+		await this._merge(uid, { faction });
 	}
 
 	async setStock(uid: string, stock: StockSave) {
