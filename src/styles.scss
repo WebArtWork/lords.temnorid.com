@@ -16,7 +16,8 @@ body {
 }
 
 body {
-	min-height: 100vh;
+	/* dvh, not vh: on phones vh counts the hidden address bar and the page would scroll. */
+	min-height: 100dvh;
 	margin: 0;
 }
 

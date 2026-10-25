@@ -15,8 +15,12 @@ import { TopbarComponent } from './layouts/topbar/topbar.component';
 	selector: 'app-root',
 	imports: [BottomBarComponent, FooterComponent, RouterOutlet, TopbarComponent],
 	template: `
-		<!-- The bars stay put; only the page between them scrolls (or, on play screens, fits). -->
-		<div class="flex h-dvh flex-col">
+		<!--
+			Pinned to the screen, so the browser itself never scrolls: on phones 100vh is taller
+			than the visible area, and the bars would slide away. Only the page between them
+			scrolls (or, on play screens, fits).
+		-->
+		<div class="fixed inset-0 flex flex-col">
 			<app-topbar class="shrink-0" />
 			<main
 				#content
