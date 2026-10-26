@@ -1,5 +1,4 @@
 import {
-	APP_INITIALIZER,
 	ApplicationConfig,
 	provideBrowserGlobalErrorListeners,
 	provideZonelessChangeDetection,
@@ -19,11 +18,7 @@ import { provideTranslate } from '@wawjs/ngx-translate';
 import { provideNgxUi } from '@wawjs/ngx-ui';
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
-import { BootstrapService } from './feature/bootstrap/bootstrap.service';
 import { companyProfile } from './feature/company/company.data';
-
-const initializeBootstrapData = (bootstrapService: BootstrapService) => () =>
-	bootstrapService.initialize();
 
 export const appConfig: ApplicationConfig = {
 	providers: [
@@ -101,11 +96,5 @@ export const appConfig: ApplicationConfig = {
 			languages: environment.languages,
 			folder: '/i18n/',
 		}),
-		{
-			provide: APP_INITIALIZER,
-			useFactory: initializeBootstrapData,
-			deps: [BootstrapService],
-			multi: true,
-		},
 	],
 };

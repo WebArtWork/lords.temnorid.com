@@ -10,6 +10,7 @@ import {
 	signal,
 } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
+import type { DungeonSpot } from '../dungeon/dungeon.map';
 import { Point } from '../map/map-geometry';
 import { cityAt } from './world.geography';
 import { isExplored, terrainAt, tileVariant } from './world.generator';
@@ -143,6 +144,19 @@ interface ViewTile extends Point {
 						</g>
 					}
 
+					<!-- The lord's dungeons: known places, so they show through the fog. -->
+					@for (spot of dungeonsInView(); track spot.id) {
+						<g [attr.transform]="'translate(' + (col(spot) + 0.5) * tileSize() + ' ' + (row(spot) + 0.5) * tileSize() + ') scale(' + markScale() + ')'">
+							<ellipse cx="0" cy="13" rx="20" ry="5" fill="rgb(0 0 0 / 0.25)" />
+							<path d="M-20 12 L-12 -6 L0 -14 L0 12 Z" fill="#8f877b" />
+							<path d="M0 -14 L12 -6 L20 12 L0 12 Z" fill="#5f574e" />
+							<path d="M-8 12 L-8 2 C-8 -6 8 -6 8 2 L8 12 Z" fill="#1d1712" />
+							@for (dot of skulls(spot.danger); track $index) {
+								<circle [attr.cx]="dot" cy="-19" r="3" fill="#e07a5f" stroke="#1d1712" stroke-width="1" />
+							}
+						</g>
+					}
+
 					@for (place of scene().cities; track place.city.id) {
 						<g class="world-city" [attr.transform]="'translate(' + place.x + ' ' + place.y + ') scale(' + citySize(place.city.capital) + ')'">
 							<ellipse cx="0" cy="16" rx="26" ry="6" fill="rgb(0 0 0 / 0.28)" />
@@ -213,7 +227,15 @@ interface ViewTile extends Point {
 				<button class="btn world-zoom__btn" (click)="cities.emit()" type="button" [attr.aria-label]="labels().cities" [title]="labels().cities">
 					<span class="material-symbols-outlined" aria-hidden="true">castle</span>
 				</button>
+				<button class="btn world-zoom__btn" (click)="info.emit()" type="button" [attr.aria-label]="labels().info" [title]="labels().info">
+					<span class="material-symbols-outlined" aria-hidden="true">info</span>
+				</button>
 			</div>
+
+			<p class="world-scale pointer-events-none absolute bottom-9 left-12 flex items-center gap-1.5">
+				<span class="material-symbols-outlined text-[16px]" aria-hidden="true">grid_4x4</span>
+				<span>{{ labels().scale }}</span>
+			</p>
 		</div>
 		<p class="sr-only" id="world-map-help">{{ labels().help }}</p>
 	`,
@@ -253,6 +275,15 @@ interface ViewTile extends Point {
 			stroke-linejoin: round;
 		}
 
+		.world-scale {
+			border-radius: 999px;
+			background: rgb(29 20 13 / 0.78);
+			padding: 0.125rem 0.625rem;
+			color: #fff8e8;
+			font-size: 0.8125rem;
+			font-weight: 600;
+		}
+
 		.world-zoom__btn {
 			min-width: 2.75rem;
 			min-height: 2.75rem;
@@ -271,6 +302,8 @@ export class WorldMapComponent {
 	readonly counts = input.required<WorldCounts>();
 	readonly villages = input.required<WorldVillage[]>();
 	readonly mineUid = input.required<string>();
+	/** The lord's own dungeons, drawn as cave mouths. */
+	readonly dungeons = input<DungeonSpot[]>([]);
 	/** Tile in the middle of the view. */
 	readonly centre = model.required<Point>();
 	readonly selected = model.required<Point>();
@@ -282,6 +315,8 @@ export class WorldMapComponent {
 	readonly navigate = output();
 	/** Asks the page to list the towns to go to. */
 	readonly cities = output();
+	/** Asks the page to explain the map: scale, towns, villages. */
+	readonly info = output();
 	/** A tile was tapped, or Enter was pressed on the selected one: the page describes it. */
 	readonly pick = output<Point>();
 
@@ -390,6 +425,14 @@ export class WorldMapComponent {
 			}),
 		);
 	});
+	protected readonly dungeonsInView = computed(() => {
+		const [firstX, lastX] = [this.colsX()[0]!, this.colsX().at(-1)!];
+		const [firstY, lastY] = [this.rowsY()[0]!, this.rowsY().at(-1)!];
+
+		return this.dungeons().filter(
+			(spot) => spot.x >= firstX && spot.x <= lastX && spot.y >= firstY && spot.y <= lastY,
+		);
+	});
 	protected readonly landTiles = computed(() => this.tiles().filter((tile) => !tile.village));
 	protected readonly villageTiles = computed(() => this.tiles().filter((tile) => tile.village));
 
@@ -407,6 +450,8 @@ export class WorldMapComponent {
 			home: t('Моє поселення'),
 			navigate: t('Перейти'),
 			cities: t('Міста'),
+			info: t('Про мапу'),
+			scale: t('1 клітинка = 2 км'),
 		};
 	});
 	protected readonly cityNames = computed(() => {
@@ -441,6 +486,11 @@ export class WorldMapComponent {
 
 	protected row(tile: Point): number {
 		return tile.y - this.rowsY()[0]!;
+	}
+
+	/** x positions of a dungeon's danger dots, one per skull, centred over the cave. */
+	protected skulls(danger: number): number[] {
+		return Array.from({ length: danger }, (_, i) => (i - (danger - 1) / 2) * 8);
 	}
 
 	protected citySize(capital: boolean | undefined): number {

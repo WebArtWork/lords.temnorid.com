@@ -1,4 +1,4 @@
-import { REGION_BIAS } from '../farm/farm.generator';
+import { REGION_BIAS } from '../region/region.bias';
 import { Point } from '../map/map-geometry';
 import { RegionId } from '../region/region.interface';
 import { RESOURCES } from '../resource/resource.data';

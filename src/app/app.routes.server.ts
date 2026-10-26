@@ -39,6 +39,10 @@ export const serverRoutes: ServerRoute[] = [
 		renderMode: RenderMode.Client,
 	},
 	{
+		path: 'dungeons/:id',
+		renderMode: RenderMode.Client,
+	},
+	{
 		path: '**',
 		renderMode: RenderMode.Prerender,
 	},

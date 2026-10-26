@@ -135,54 +135,9 @@ This makes Angular generate static HTML for every route during build.
 
 ---
 
-# Bootstrap Data
-
-The app includes a small bootstrap data flow for company profile data.
-
-Main files:
-
-```text
-src/app/app.config.ts
-src/app/feature/bootstrap/bootstrap.service.ts
-src/app/feature/bootstrap/bootstrap.interface.ts
-src/app/feature/company/company.data.ts
-src/app/feature/company/company.service.ts
-src/data/company/company.json
-src/environments/environment.prod.ts
-```
-
-How it works:
-
-- `APP_INITIALIZER` runs `BootstrapService.initialize()` during app startup
-- on the server, bootstrap data is fetched from `${environment.apiUrl}/api/regionit/bootstrap/${environment.companyId}`
-- fetched data is stored in Angular `TransferState`
-- on the browser, transferred data is applied immediately and then refreshed in the background
-- if no remote data is available, the app falls back to `src/data/company/company.json`
-- local company data is normalized into a `CompanyProfile` with SEO defaults, contact fields, structured data, and page SEO overrides
-
-Bootstrap payload shape:
-
-```ts
-export interface BootstrapData {
-	company?: Partial<Company> | null;
-}
-```
-
-Environment keys involved:
-
-- `apiUrl` - API host used for bootstrap requests
-- `companyId` - company identifier sent to the bootstrap endpoint
-
-Current fallback behavior in code:
-
-- when the API is unavailable, the app keeps rendering with local fallback company data
-- when the API returns a partial company object, it updates identity fields without discarding local SEO/contact defaults
-
-This keeps SSR and prerender safe while still allowing the app to hydrate with API data when it exists.
-
 For future component or page-level async reads, prefer signal-based resources. Use `ngxResource()`
 from `@wawjs/ngx-core` for persisted or generic async reads, especially when `StoreService` caching
-is useful. Keep bootstrap initialization, migrations, and startup fallback flows as direct
+is useful. Keep migrations and startup fallback flows as direct
 imperative async code when a resource state object would make the flow less clear.
 
 For theme preferences, keep mode, density, radius, and persistence centralized in `ThemeService`

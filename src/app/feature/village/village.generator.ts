@@ -1,4 +1,5 @@
 import { ElementId } from '../element/element.interface';
+import { FarmSurrounding } from '../farm/farm.generator';
 import { RegionId } from '../region/region.interface';
 import {
 	VillageBridge,
@@ -37,22 +38,26 @@ import {
  * Building slots are sampled once, when the village is founded, and then saved; later draws pass
  * them back in. The scenery is redrawn from the seed every time and fitted around those slots.
  *
- * Never change what layout 1 draws: saved villages depend on it. A new look is a new
- * VILLAGE_LAYOUT with its own branch.
+ * Layouts:
+ * 1. An oval on a 1000×750 map.
+ * 2. A long, squared-off village on a wide 1800×1000 map, so it fills a landscape screen and,
+ *    turned on its side, a portrait one. It is layout 1's shape stretched (VILLAGE_STRETCH) and
+ *    squared, so layout 1 villages are redrawn as layout 2 with their saved places stretched the
+ *    same way (see villageSlots): every building keeps its place and stays inside the village.
+ *
+ * Never change what the current layout samples: saved places depend on it. A new look is a new
+ * VILLAGE_LAYOUT that saved villages are carried over to.
  */
-export const VILLAGE_LAYOUT = 1;
-export const VILLAGE_WIDTH = 1000;
-export const VILLAGE_HEIGHT = 750;
+export const VILLAGE_LAYOUT = 2;
+export const VILLAGE_WIDTH = 1800;
+export const VILLAGE_HEIGHT = 1000;
+/** Layout 1's map, and how far layout 2 stretches its village along each axis. */
+const LAYOUT_1 = { width: 1000, height: 750 };
+const VILLAGE_STRETCH = { x: 1.8, y: 1.2 };
+/** How square layout 2's village is: 2 would be an oval. */
+const VILLAGE_SQUARENESS = 3;
 /** Every village gets the same number of places to build, so no player starts ahead. */
 export const VILLAGE_SLOT_COUNT = 18;
-
-/** Direction of the world's edge as seen from each quarter, in screen angles (y points down). */
-const REGION_ANGLE: Record<RegionId, number> = {
-	'north-west': (-3 * Math.PI) / 4,
-	'north-east': -Math.PI / 4,
-	'south-east': Math.PI / 4,
-	'south-west': (3 * Math.PI) / 4,
-};
 
 const PALETTES: Record<ElementId, VillagePalette> = {
 	// A warm mountain shelf: dry grass on rock, slate-grey stones.
@@ -89,6 +94,25 @@ const PALETTES: Record<ElementId, VillagePalette> = {
 	},
 };
 
+/**
+ * A saved village's places in the current layout. Layout 1 places are stretched with the village,
+ * so they keep their spot relative to the outline.
+ */
+export function villageSlots(save: { seed: number; layout: number; slots: VillageSlot[] }): VillageSlot[] {
+	if (save.layout !== 1) {
+		return save.slots;
+	}
+
+	const before = _layout1Shape(save.seed).village;
+	const after = _shape(save.seed).village;
+
+	return save.slots.map((slot) => ({
+		id: slot.id,
+		x: round1(after.cx + (slot.x - before.cx) * VILLAGE_STRETCH.x),
+		y: round1(after.cy + (slot.y - before.cy) * VILLAGE_STRETCH.y),
+	}));
+}
+
 /** Samples the building slots of a new village. Call once, then save the result. */
 export function generateVillageSlots(seed: number): VillageSlot[] {
 	const { village, plaza } = _shape(seed);
@@ -96,12 +120,17 @@ export function generateVillageSlots(seed: number): VillageSlot[] {
 	return _sampleSlots(seededRng(seed ^ 0x9e3779b9), village, plaza);
 }
 
-/** Draws the whole map from the seed, around saved slots. */
+/**
+ * Draws the whole map from the seed, around saved slots. The land beyond the walls is the lord's
+ * farm (see farmSurroundings): each of its patches shows in the same direction as on the farm map,
+ * sized by its plots, and the roads out of the village lead toward the biggest of them.
+ */
 export function generateVillage(
 	seed: number,
 	element: ElementId,
 	region: RegionId,
 	slots: VillageSlot[],
+	surroundings: FarmSurrounding[],
 ): VillageMap {
 	const { village, plaza } = _shape(seed);
 	// Scenery has its own random stream, so it never depends on how the slots were sampled.
@@ -109,15 +138,13 @@ export function generateVillage(
 	const centre = { x: plaza.cx, y: plaza.cy };
 
 	const roads = _slotRoads(rng, centre, slots);
-	const exits = _exits(rng, village, centre);
+	const exits = _exits(rng, village, centre, _roadDirections(surroundings));
 	const streamArc = _streamArc(rng, element);
 	const stream = streamArc ? _streamPath(rng, village, streamArc) : null;
 	const bridges = streamArc ? _bridges(village, exits, streamArc) : [];
 	const ridge = _ridge(rng, element, village, exits, streamArc);
-	const fieldBlobs = _fieldBlobs(rng, village);
 	const exitLines = exits.map((exit) => exit.points);
-	const trees = _trees(rng, region, village, fieldBlobs, exitLines);
-	const rocks = _rocks(rng, element, village, fieldBlobs, exitLines);
+	const land = _farmland(rng, region, village, surroundings, exitLines);
 
 	return {
 		width: VILLAGE_WIDTH,
@@ -134,21 +161,53 @@ export function generateVillage(
 		stream,
 		bridges,
 		ridge,
-		fields: fieldBlobs.map((blob) => blobPath(blob, 1)),
-		trees,
-		rocks,
+		fields: land.fields,
+		ponds: land.ponds,
+		pits: land.pits,
+		trees: land.trees,
+		rocks: land.rocks,
+		ores: land.ores,
 	};
 }
 
 // ---- Shape ----
 
-/** Village outline and central square. Both come first from the seed, so slots and scenery agree. */
+/**
+ * Village outline and central square. Both come first from the seed, so slots and scenery agree.
+ * Layout 1's oval, moved to the middle of the wider map, stretched and squared off. The square
+ * grows a little with it, by the smaller stretch, so it stays a square and not a field.
+ */
 function _shape(seed: number) {
+	const before = _layout1Shape(seed);
+	const sx = VILLAGE_WIDTH / LAYOUT_1.width;
+	const sy = VILLAGE_HEIGHT / LAYOUT_1.height;
+	const village: Blob = {
+		...before.village,
+		cx: before.village.cx * sx,
+		cy: before.village.cy * sy,
+		rx: before.village.rx * VILLAGE_STRETCH.x,
+		ry: before.village.ry * VILLAGE_STRETCH.y,
+		squareness: VILLAGE_SQUARENESS,
+	};
+	const grow = Math.min(VILLAGE_STRETCH.x, VILLAGE_STRETCH.y);
+	const plaza: Blob = {
+		...before.plaza,
+		cx: village.cx + (before.plaza.cx - before.village.cx) * VILLAGE_STRETCH.x,
+		cy: village.cy + (before.plaza.cy - before.village.cy) * VILLAGE_STRETCH.y,
+		rx: before.plaza.rx * grow,
+		ry: before.plaza.ry * grow,
+	};
+
+	return { village, plaza };
+}
+
+/** Layout 1's outline and square, which layout 2 is drawn from. Never change it. */
+function _layout1Shape(seed: number) {
 	const rng = seededRng(seed);
 	const village = makeBlob(
 		rng,
-		VILLAGE_WIDTH / 2 + range(rng, -30, 30),
-		VILLAGE_HEIGHT / 2 + range(rng, -20, 20),
+		LAYOUT_1.width / 2 + range(rng, -30, 30),
+		LAYOUT_1.height / 2 + range(rng, -20, 20),
 		range(rng, 320, 350),
 		range(rng, 245, 265),
 		0.16,
@@ -168,7 +227,8 @@ function _shape(seed: number) {
 // ---- Slots ----
 
 function _sampleSlots(rng: Rng, village: Blob, plaza: Blob): VillageSlot[] {
-	let minDistance = 112;
+	// Wide enough apart to spread the places over the long village, not bunch them in the middle.
+	let minDistance = 170;
 	let points: Point[] = [];
 
 	// Shrink the spacing until the outline fits every slot. Small villages pack a little tighter.
@@ -243,13 +303,31 @@ interface Exit {
 	points: Point[];
 }
 
-/** Two to four roads leaving the village, spread around it. */
-function _exits(rng: Rng, village: Blob, centre: Point): Exit[] {
-	const count = 2 + Math.floor(rng() * 3);
-	const start = rng() * TAU;
+/**
+ * Up to three directions for the roads out: toward the biggest farm patches, kept well apart so
+ * they leave on different sides. Screen angles.
+ */
+function _roadDirections(surroundings: FarmSurrounding[]): number[] {
+	const directions: number[] = [];
 
-	return Array.from({ length: count }, (_, i) => {
-		const angle = start + (i * TAU) / count + range(rng, -0.3, 0.3);
+	for (const patch of [...surroundings].sort((a, b) => b.size - a.size)) {
+		if (directions.length < 3 && directions.every((d) => Math.abs(angleBetween(d, patch.angle)) > 1.2)) {
+			directions.push(patch.angle);
+		}
+	}
+
+	return directions;
+}
+
+/** The blob's own angle for a screen direction, so a point at it lies that way from the centre. */
+function _blobAngle(blob: Blob, angle: number): number {
+	return Math.atan2(Math.sin(angle) / blob.ry, Math.cos(angle) / blob.rx);
+}
+
+/** Roads leaving the village, one per direction (screen angles). */
+function _exits(rng: Rng, village: Blob, centre: Point, directions: number[]): Exit[] {
+	return directions.map((direction) => {
+		const angle = _blobAngle(village, direction) + range(rng, -0.08, 0.08);
 		const edge = blobPoint(village, angle, 1);
 		const bend = blobPoint(village, angle + range(rng, -0.12, 0.12), 0.55);
 
@@ -310,7 +388,7 @@ function _ridge(
 	const rocks: VillageRock[] = [];
 	const density = element === 'stone' ? 1 : 0.35;
 
-	for (let angle = 0; angle < TAU; angle += range(rng, 0.045, 0.1)) {
+	for (let angle = 0; angle < TAU; angle += range(rng, 0.03, 0.065)) {
 		const nearExit = exits.some((exit) => Math.abs(angleBetween(exit.angle, angle)) < 0.14);
 		const keep = rng() < density;
 
@@ -326,97 +404,112 @@ function _ridge(
 	return rocks;
 }
 
-// ---- Scenery outside the village ----
+// ---- The farm beyond the walls ----
 
-function _fieldBlobs(rng: Rng, village: Blob): Blob[] {
-	const count = 2 + Math.floor(rng() * 3);
-	const fields: Blob[] = [];
-
-	for (let i = 0; i < count * 4 && fields.length < count; i++) {
-		const at = blobPoint(village, rng() * TAU, range(rng, 1.35, 1.55));
-		const field = makeBlob(rng, at.x, at.y, range(rng, 55, 95), range(rng, 32, 55), 0.12);
-		const onMap = at.x > 40 && at.x < VILLAGE_WIDTH - 40 && at.y > 30 && at.y < VILLAGE_HEIGHT - 30;
-		const apart = fields.every((other) => pointDistance(at, { x: other.cx, y: other.cy }) > 190);
-
-		if (onMap && apart) {
-			fields.push(field);
-		}
-	}
-
-	return fields;
+interface Farmland {
+	fields: string[];
+	ponds: string[];
+	pits: { outer: string; inner: string }[];
+	trees: VillageTree[];
+	rocks: VillageRock[];
+	ores: VillageRock[];
 }
 
-/** Forests gather toward the world's edge: north-west villages have their woods to the north-west. */
-function _trees(
+/**
+ * Each farm patch drawn beyond the walls, the way it looks on the farm: a forest for wood, a field
+ * for grain, boulders for stone, ore for iron, a pond for water, a pit for clay. Near patches sit
+ * close to the walls, far ones further out; more plots, a bigger patch. Besides them, only a few
+ * lone trees and stones.
+ */
+function _farmland(
 	rng: Rng,
 	region: RegionId,
 	village: Blob,
-	fields: Blob[],
+	surroundings: FarmSurrounding[],
 	exitLines: Point[][],
-): VillageTree[] {
-	const edge = REGION_ANGLE[region];
+): Farmland {
+	const land: Farmland = { fields: [], ponds: [], pits: [], trees: [], rocks: [], ores: [] };
 	const coniferShare = region.startsWith('north') ? 0.7 : 0.2;
-	const clusterCount = 3 + Math.floor(rng() * 3);
-	const clusters = Array.from({ length: clusterCount }, (_, i) => {
-		// Two in three clusters face the world's edge; the rest fall anywhere.
-		const angle = i % 3 === 2 ? rng() * TAU : edge + range(rng, -0.8, 0.8);
-		const at = blobPoint(village, angle, range(rng, 1.45, 1.8));
+	const forests: { x: number; y: number; r: number }[] = [];
+	const open = (x: number, y: number) =>
+		!inBlob(village, x, y, 1.16) && exitLines.every((line) => distanceToLine({ x, y }, line) > 22);
+	const scatter = (at: Point, radius: number, count: number, min: number, max: number) =>
+		Array.from({ length: count * 4 }, () => {
+			const angle = rng() * TAU;
+			const distance = Math.sqrt(rng()) * radius;
 
-		return { ...at, r: range(rng, 110, 190) };
-	});
+			return { x: at.x + Math.cos(angle) * distance, y: at.y + Math.sin(angle) * distance };
+		})
+			.filter((p) => open(p.x, p.y))
+			.slice(0, count)
+			.map((p) => ({ x: round1(p.x), y: round1(p.y), r: round1(range(rng, min, max)) }));
 
-	const trees = poisson(rng, VILLAGE_WIDTH, VILLAGE_HEIGHT, 26, (x, y) => {
-		const free = _outsideVillage(village, fields, exitLines, x, y);
-		const inForest = clusters.some((c) => pointDistance({ x, y }, c) < c.r * range(rng, 0.7, 1));
+	for (const patch of surroundings) {
+		const out = blobPoint(village, _blobAngle(village, patch.angle), patch.far ? 1.42 : 1.26);
+		const at = {
+			x: Math.max(40, Math.min(VILLAGE_WIDTH - 40, out.x)),
+			y: Math.max(40, Math.min(VILLAGE_HEIGHT - 40, out.y)),
+		};
+		const radius = 55 + 22 * patch.size;
 
-		return free && (inForest || rng() < 0.03);
-	});
+		switch (patch.resource) {
+			case 'wood':
+				forests.push({ ...at, r: radius });
+				break;
+			case 'grain':
+				land.fields.push(blobPath(makeBlob(rng, at.x, at.y, radius * 0.9, radius * 0.6, 0.12), 1));
+				break;
+			case 'water':
+				land.ponds.push(blobPath(makeBlob(rng, at.x, at.y, radius * 0.75, radius * 0.5, 0.18), 1));
+				break;
+			case 'clay': {
+				const pit = makeBlob(rng, at.x, at.y, radius * 0.7, radius * 0.5, 0.15);
 
-	return trees
-		.map((p) => ({
-			x: round1(p.x),
-			y: round1(p.y),
-			r: round1(range(rng, 13, 21)),
-			conifer: rng() < coniferShare,
-		}))
-		.sort((a, b) => a.y - b.y);
-}
-
-function _rocks(
-	rng: Rng,
-	element: ElementId,
-	village: Blob,
-	fields: Blob[],
-	exitLines: Point[][],
-): VillageRock[] {
-	const count = element === 'stone' ? 14 + Math.floor(rng() * 8) : 6 + Math.floor(rng() * 6);
-	const rocks: VillageRock[] = [];
-
-	for (let i = 0; i < count * 6 && rocks.length < count; i++) {
-		const x = rng() * VILLAGE_WIDTH;
-		const y = rng() * VILLAGE_HEIGHT;
-
-		if (_outsideVillage(village, fields, exitLines, x, y)) {
-			rocks.push({ x: round1(x), y: round1(y), r: round1(range(rng, 6, 15)) });
+				land.pits.push({ outer: blobPath(pit, 1), inner: blobPath(pit, 0.55) });
+				break;
+			}
+			case 'stone':
+				land.rocks.push(...scatter(at, radius * 0.8, 4 + patch.size * 2, 12, 22));
+				break;
+			case 'iron':
+				land.ores.push(...scatter(at, radius * 0.7, 3 + patch.size * 2, 9, 15));
+				break;
 		}
 	}
 
-	return rocks.sort((a, b) => a.y - b.y);
+	// Forests, plus the odd lone tree on open land.
+	land.trees = poisson(
+		rng,
+		VILLAGE_WIDTH,
+		VILLAGE_HEIGHT,
+		26,
+		(x, y) =>
+			open(x, y) &&
+			(forests.some((f) => pointDistance({ x, y }, f) < f.r * range(rng, 0.75, 1)) || rng() < 0.012),
+		400,
+	).map((p) => ({
+		x: round1(p.x),
+		y: round1(p.y),
+		r: round1(range(rng, 13, 21)),
+		conifer: rng() < coniferShare,
+	}));
+
+	// A few small stones anywhere, so open land is not bare.
+	for (let i = 0; i < 8; i++) {
+		const x = rng() * VILLAGE_WIDTH;
+		const y = rng() * VILLAGE_HEIGHT;
+
+		if (open(x, y)) {
+			land.rocks.push({ x: round1(x), y: round1(y), r: round1(range(rng, 6, 12)) });
+		}
+	}
+
+	const byDepth = (a: Point, b: Point) => a.y - b.y;
+
+	land.trees.sort(byDepth);
+	land.rocks.sort(byDepth);
+	land.ores.sort(byDepth);
+
+	return land;
 }
 
-/** Open land: beyond the stream, off the fields and clear of the roads. */
-function _outsideVillage(
-	village: Blob,
-	fields: Blob[],
-	exitLines: Point[][],
-	x: number,
-	y: number,
-): boolean {
-	const point = { x, y };
-
-	return (
-		!inBlob(village, x, y, 1.18) &&
-		fields.every((field) => !inBlob(field, x, y, 1.15)) &&
-		exitLines.every((line) => distanceToLine(point, line) > 22)
-	);
-}

@@ -1,8 +1,18 @@
-import { Component, computed, inject, input, model } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, input, model, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { Construction } from '../building/building.interface';
 import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
+import { Point } from '../map/map-geometry';
+import {
+	growth,
+	isCompact,
+	isPortrait,
+	landTurn,
+	mapViewBox,
+	pixelsPerUnit,
+	uprightTurn,
+} from '../map/map-view';
 import { RESOURCE_BY_ID } from '../resource/resource.data';
 import { FarmMap } from './farm.interface';
 
@@ -15,7 +25,7 @@ import { FarmMap } from './farm.interface';
 			class="farm-map block w-full"
 			[class.h-auto]="!fill()"
 			[class.h-full]="fill()"
-			[attr.viewBox]="'0 0 ' + map().width + ' ' + map().height"
+			[attr.viewBox]="viewBox()"
 			role="group"
 			[attr.aria-label]="labels().map"
 		>
@@ -25,6 +35,12 @@ import { FarmMap } from './farm.interface';
 				</pattern>
 			</defs>
 
+			<!--
+				On a portrait screen the land turns a quarter round to fit; everything standing on it
+				(plots, houses, peaks, trees, rocks) turns back, so it is seen upright from another side.
+			-->
+			<g [attr.transform]="land()">
+
 			<!-- Three times the map, so when the map fills a box of another shape the spare room is grass too. -->
 			<rect [attr.x]="-map().width" [attr.y]="-map().height" [attr.width]="map().width * 3" [attr.height]="map().height * 3" fill="#86a05a" />
 
@@ -33,12 +49,16 @@ import { FarmMap } from './farm.interface';
 			}
 
 			@for (rock of map().rocks; track $index) {
-				<ellipse [attr.cx]="rock.x" [attr.cy]="rock.y" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.7" fill="#958d84" stroke="#6a625a" stroke-width="2" />
+				<g [attr.transform]="at(rock)">
+					<ellipse cx="0" cy="0" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.7" fill="#958d84" stroke="#6a625a" stroke-width="2" />
+				</g>
 			}
 
 			@for (tree of map().trees; track $index) {
-				<circle [attr.cx]="tree.x" [attr.cy]="tree.y" [attr.r]="tree.r" fill="#3a522a" />
-				<circle [attr.cx]="tree.x - tree.r * 0.25" [attr.cy]="tree.y - tree.r * 0.25" [attr.r]="tree.r * 0.65" fill="#5d7d40" />
+				<g [attr.transform]="at(tree)">
+					<circle cx="0" cy="0" [attr.r]="tree.r" fill="#3a522a" />
+					<circle [attr.cx]="-tree.r * 0.25" [attr.cy]="-tree.r * 0.25" [attr.r]="tree.r * 0.65" fill="#5d7d40" />
+				</g>
 			}
 
 			@for (zone of map().zones; track $index) {
@@ -47,22 +67,28 @@ import { FarmMap } from './farm.interface';
 					@case ('wood') {
 						<path [attr.d]="zone.path" fill="#45632f" />
 						@for (tree of zone.decor; track $index) {
-							<circle [attr.cx]="tree.x" [attr.cy]="tree.y" [attr.r]="tree.r" fill="#2f4524" />
-							<circle [attr.cx]="tree.x - tree.r * 0.25" [attr.cy]="tree.y - tree.r * 0.25" [attr.r]="tree.r * 0.65" fill="#557538" />
+							<g [attr.transform]="at(tree)">
+								<circle cx="0" cy="0" [attr.r]="tree.r" fill="#2f4524" />
+								<circle [attr.cx]="-tree.r * 0.25" [attr.cy]="-tree.r * 0.25" [attr.r]="tree.r * 0.65" fill="#557538" />
+							</g>
 						}
 					}
 					@case ('stone') {
 						<path [attr.d]="zone.path" fill="#b0a897" />
 						@for (peak of zone.decor; track $index) {
-							<path [attr.d]="peakPath(peak.x, peak.y, peak.r)" fill="#8c8579" />
-							<path [attr.d]="peakLight(peak.x, peak.y, peak.r)" fill="#d3ccbe" />
+							<g [attr.transform]="at(peak)">
+								<path [attr.d]="peakPath(peak.r)" fill="#8c8579" />
+								<path [attr.d]="peakLight(peak.r)" fill="#d3ccbe" />
+							</g>
 						}
 					}
 					@case ('iron') {
 						<path [attr.d]="zone.path" fill="#655c55" />
 						@for (rock of zone.decor; track $index) {
-							<path [attr.d]="shardPath(rock.x, rock.y, rock.r)" fill="#463f3a" />
-							<circle [attr.cx]="rock.x + rock.r * 0.2" [attr.cy]="rock.y - rock.r * 0.1" [attr.r]="rock.r * 0.22" fill="#b0603c" />
+							<g [attr.transform]="at(rock)">
+								<path [attr.d]="shardPath(rock.r)" fill="#463f3a" />
+								<circle [attr.cx]="rock.r * 0.2" [attr.cy]="-rock.r * 0.1" [attr.r]="rock.r * 0.22" fill="#b0603c" />
+							</g>
 						}
 					}
 					@case ('water') {
@@ -88,7 +114,7 @@ import { FarmMap } from './farm.interface';
 			<a class="farm-village" routerLink="/village" [attr.aria-label]="labels().village">
 				<path [attr.d]="map().village.path" fill="#d8c08c" stroke="#7b5a35" stroke-width="6" stroke-dasharray="4 3" />
 				@for (house of houses; track $index) {
-					<g [attr.transform]="'translate(' + (map().village.x + house.x) + ' ' + (map().village.y + house.y) + ')'">
+					<g [attr.transform]="at({ x: map().village.x + house.x, y: map().village.y + house.y })">
 						<rect x="-9" y="-4" width="18" height="12" fill="#efe3c6" stroke="#7b5a35" stroke-width="1.5" />
 						<path d="M-12 -4 L0 -14 L12 -4 Z" fill="#8f4a2e" />
 					</g>
@@ -99,7 +125,7 @@ import { FarmMap } from './farm.interface';
 				<g
 					class="farm-plot"
 					[class.farm-plot--selected]="plot.id === selected()"
-					[attr.transform]="'translate(' + plot.x + ' ' + plot.y + ')'"
+					[attr.transform]="at(plot) + plotScale()"
 					role="button"
 					tabindex="0"
 					[attr.aria-label]="labels().names[plot.resource] + ', ' + labels().level + ' ' + levelOf(plot.id)"
@@ -108,25 +134,26 @@ import { FarmMap } from './farm.interface';
 					(keydown.enter)="toggle(plot.id)"
 					(keydown.space)="$event.preventDefault(); toggle(plot.id)"
 				>
-					<circle class="farm-plot__ring" r="25" />
-					<circle class="farm-plot__disc" r="19" [attr.stroke]="resources[plot.resource].color" />
+					<circle class="farm-plot__ring" r="29" />
+					<circle class="farm-plot__disc" r="23" [attr.stroke]="resources[plot.resource].color" />
 					<text class="material-symbols-outlined farm-plot__icon" text-anchor="middle" dominant-baseline="central" [attr.fill]="resources[plot.resource].color">
 						{{ resources[plot.resource].icon }}
 					</text>
 					@if (levelOf(plot.id); as level) {
-						<g transform="translate(17 -17)">
-							<circle class="farm-plot__level" r="10" />
+						<g transform="translate(20 -20)">
+							<circle class="farm-plot__level" r="11" />
 							<text class="farm-plot__level-text" y="1">{{ level }}</text>
 						</g>
 					}
 					@if (timeLeft(plot.id); as left) {
-						<g transform="translate(0 33)">
+						<g transform="translate(0 39)">
 							<rect class="farm-plot__timer" x="-28" y="-10" width="56" height="20" rx="10" />
 							<text class="farm-plot__timer-text" y="1">{{ left }}</text>
 						</g>
 					}
 				</g>
 			}
+			</g>
 		</svg>
 	`,
 	styles: `
@@ -191,7 +218,7 @@ import { FarmMap } from './farm.interface';
 		}
 
 		.farm-plot__icon {
-			font-size: 20px;
+			font-size: 25px;
 			pointer-events: none;
 		}
 
@@ -224,6 +251,37 @@ export class FarmMapComponent {
 	/** The clock, in epoch milliseconds, so work in progress shows its countdown. */
 	readonly now = input(0);
 
+	/** The host's box, to tell a phone from a big screen and portrait from landscape. */
+	private readonly _box = signal({ width: 0, height: 0 });
+	protected readonly portrait = computed(() => this.fill() && isPortrait(this._box()));
+	/**
+	 * A big screen shows the whole map. A small one frames just the plots and the village, with
+	 * room for a level badge above and a timer below (sized for plots grown to the full scale), so
+	 * the plots fill the screen and stay readable.
+	 */
+	protected readonly viewBox = computed(() => {
+		const { plots, village } = this.map();
+
+		return mapViewBox(
+			this.map(),
+			[village, ...plots],
+			{ side: 85, above: 85, below: 105 },
+			this.fill() && isCompact(this._box()),
+			this.portrait(),
+		);
+	});
+	protected readonly land = computed(() => landTurn(this.map(), this.portrait()));
+	protected readonly upright = computed(() => uprightTurn(this.portrait()));
+	/**
+	 * Plots grow on small screens so icons, levels and timers read and tap easily, up to 1.25 times:
+	 * a plot's disc is 46 units across and plots stand at least 70 apart, so even fully grown
+	 * neighbours keep a clear gap.
+	 */
+	private readonly _plot = computed(() =>
+		growth(pixelsPerUnit(this._box(), this.viewBox()), 0.9, 1.25),
+	);
+	protected readonly plotScale = computed(() => (this._plot() === 1 ? '' : ` scale(${this._plot()})`));
+
 	protected readonly resources = RESOURCE_BY_ID;
 	protected readonly houses = [
 		{ x: -30, y: -10 },
@@ -246,6 +304,18 @@ export class FarmMapComponent {
 		};
 	});
 
+	constructor() {
+		const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) {
+				this._box.set({ width: entry.contentRect.width, height: entry.contentRect.height });
+			}
+		});
+
+		observer.observe(host);
+		inject(DestroyRef).onDestroy(() => observer.disconnect());
+	}
+
 	protected levelOf(id: number): number {
 		const saved = this.levels()[id];
 
@@ -264,17 +334,22 @@ export class FarmMapComponent {
 		this.selected.update((current) => (current === id ? null : id));
 	}
 
-	/** A mountain: one triangle, plus its sunlit left face. */
-	protected peakPath(x: number, y: number, r: number): string {
-		return `M${x - r} ${y + r * 0.5} L${x} ${y - r} L${x + r} ${y + r * 0.5} Z`;
+	/** Where a standing thing goes: moved to its spot and, on turned land, turned back upright. */
+	protected at(point: Point): string {
+		return `translate(${point.x} ${point.y})${this.upright()}`;
 	}
 
-	protected peakLight(x: number, y: number, r: number): string {
-		return `M${x - r} ${y + r * 0.5} L${x} ${y - r} L${x - r * 0.15} ${y + r * 0.5} Z`;
+	/** A mountain round its own centre: one triangle, plus its sunlit left face. */
+	protected peakPath(r: number): string {
+		return `M${-r} ${r * 0.5} L0 ${-r} L${r} ${r * 0.5} Z`;
 	}
 
-	/** A jagged ore rock. */
-	protected shardPath(x: number, y: number, r: number): string {
-		return `M${x - r} ${y + r * 0.4} L${x - r * 0.5} ${y - r * 0.6} L${x + r * 0.2} ${y - r} L${x + r} ${y - r * 0.1} L${x + r * 0.7} ${y + r * 0.5} Z`;
+	protected peakLight(r: number): string {
+		return `M${-r} ${r * 0.5} L0 ${-r} L${-r * 0.15} ${r * 0.5} Z`;
+	}
+
+	/** A jagged ore rock round its own centre. */
+	protected shardPath(r: number): string {
+		return `M${-r} ${r * 0.4} L${-r * 0.5} ${-r * 0.6} L${r * 0.2} ${-r} L${r} ${-r * 0.1} L${r * 0.7} ${r * 0.5} Z`;
 	}
 }

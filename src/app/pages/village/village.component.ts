@@ -4,8 +4,10 @@ import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
 import { BuildingId, CENTER_PLACE } from '../../feature/building/building.interface';
 import { nowSignal } from '../../feature/building/building.timing';
+import { farmSurroundings } from '../../feature/farm/farm.generator';
+import { farmLand } from '../../feature/farm/farm.land';
 import { GameService, GameState } from '../../feature/game/game.service';
-import { generateVillage } from '../../feature/village/village.generator';
+import { generateVillage, villageSlots } from '../../feature/village/village.generator';
 import { VillageMapComponent } from '../../feature/village/village-map.component';
 import { VillageSlotModalComponent } from '../../feature/village/village-slot-modal.component';
 import { GameHeaderComponent } from '../../layouts/game-header/game-header.component';
@@ -60,7 +62,18 @@ export class VillageComponent {
 		const state = this.state();
 
 		return state
-			? generateVillage(state.village.seed, state.element, state.region, state.village.slots)
+			? generateVillage(
+					state.village.seed,
+					state.element,
+					state.region,
+					villageSlots(state.village),
+					// The land beyond the walls is the lord's farm.
+					farmSurroundings(
+						state.farm.seed,
+						state.farm.plots,
+						state.farm.at ? farmLand(state.farm.at) : null,
+					),
+				)
 			: null;
 	});
 
@@ -97,10 +110,9 @@ export class VillageComponent {
 		});
 	}
 
-	/** Raises the building, then opens its page. */
+	/** Raises the building; the modal closes and the lord stays on the village. */
 	private async _build(slot: number, type: BuildingId) {
 		await this._game.build(slot, type);
-		await this._router.navigate(['/building', slot]);
 	}
 
 	private async _load() {

@@ -1,7 +1,8 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
+import { dungeonSpots } from '../../feature/dungeon/dungeon.map';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { Point } from '../../feature/map/map-geometry';
 import { REGIONS } from '../../feature/region/region.data';
@@ -9,6 +10,7 @@ import { RESOURCE_BY_ID } from '../../feature/resource/resource.data';
 import { cityAt, geoAt, WorldCity } from '../../feature/world/world.geography';
 import { isExplored, quadrantOf, terrainAt } from '../../feature/world/world.generator';
 import { WorldCitiesModalComponent } from '../../feature/world/world-cities-modal.component';
+import { WorldInfoModalComponent } from '../../feature/world/world-info-modal.component';
 import { WorldJumpModalComponent } from '../../feature/world/world-jump-modal.component';
 import {
 	WorldTileInfo,
@@ -41,12 +43,14 @@ const RESOURCE_LAND: Record<string, string> = {
 					[counts]="world.counts"
 					[villages]="world.villages"
 					[mineUid]="world.mine.uid"
+					[dungeons]="dungeons()"
 					[(centre)]="centre"
 					[(selected)]="selected"
 					[(zoom)]="zoom"
 					(home)="goHome()"
 					(navigate)="openJump()"
 					(cities)="openCities()"
+					(info)="openInfo()"
 					(pick)="openTile($event)"
 				/>
 			</section>
@@ -85,6 +89,15 @@ export class WorldComponent {
 	/** A tile to open on, from the link (e.g. a town page's "Show on the map"). */
 	readonly x = input<string>();
 	readonly y = input<string>();
+	/** A dungeon to open on, from its page's "Show on the map". */
+	readonly dungeon = input<string>();
+
+	/** The lord's own dungeons, around their village. */
+	protected readonly dungeons = computed(() => {
+		const world = this.world();
+
+		return world ? dungeonSpots(world.mine, world.mine.uid) : [];
+	});
 
 	constructor() {
 		void this._load();
@@ -118,8 +131,23 @@ export class WorldComponent {
 		});
 	}
 
+	protected openInfo() {
+		this._modal.show({
+			component: WorldInfoModalComponent,
+			size: 'mid',
+			ariaLabelledBy: 'world-info-modal-title',
+		});
+	}
+
 	protected openTile(point: Point) {
-		// A town has its own page.
+		// A dungeon and a town each have their own page.
+		const dungeon = this.dungeons().find((spot) => spot.x === point.x && spot.y === point.y);
+
+		if (dungeon) {
+			void this._router.navigate(['/dungeons', dungeon.id]);
+			return;
+		}
+
 		const city = cityAt(point.x, point.y);
 
 		if (city) {
@@ -242,8 +270,11 @@ export class WorldComponent {
 
 			const x = Number(this.x());
 			const y = Number(this.y());
+			const dungeon = this.dungeons().find((spot) => spot.id === this.dungeon());
 
-			if (this.x() && this.y() && Number.isFinite(x) && Number.isFinite(y)) {
+			if (dungeon) {
+				this._goTo(dungeon);
+			} else if (this.x() && this.y() && Number.isFinite(x) && Number.isFinite(y)) {
 				this._goTo({ x: Math.round(x), y: Math.round(y) });
 			} else {
 				this.goHome();

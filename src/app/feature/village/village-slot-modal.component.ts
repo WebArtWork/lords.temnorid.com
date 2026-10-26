@@ -58,11 +58,11 @@ import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 									>{{ option.type.icon }}</span
 								>
 								<div class="min-w-0 flex-1">
-									<p
-										class="font-semibold text-[var(--c-text-strong)]"
-										[translate]="option.type.name"
-									>
-										{{ option.type.name }}
+									<p class="font-semibold text-[var(--c-text-strong)]">
+										<span [translate]="option.type.name">{{ option.type.name }}</span>
+										@if (option.owned) {
+											<span class="tabular-nums"> ({{ option.owned }})</span>
+										}
 									</p>
 									<p
 										class="mt-1 text-sm text-[var(--c-text-muted)]"
@@ -214,6 +214,9 @@ export class VillageSlotModalComponent {
 
 				return {
 					type,
+					owned: type.repeatable
+						? all.filter((building) => building.type === type.id).length
+						: 0,
 					cost: RESOURCES.filter((resource) => type.cost[resource.id]).map(
 						(resource) => ({
 							id: resource.id,

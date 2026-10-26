@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { generateFarm } from '../../feature/farm/farm.generator';
+import { farmLand } from '../../feature/farm/farm.land';
 import { FarmMapComponent } from '../../feature/farm/farm-map.component';
 import { nowSignal } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
@@ -55,7 +56,12 @@ export class FarmComponent {
 		const state = this.state();
 
 		return state
-			? generateFarm(state.farm.seed, state.element, state.region, state.farm.plots)
+			? generateFarm(
+					state.farm.seed,
+					state.farm.plots,
+					// The farm follows the land round the village on the world map.
+					state.farm.at ? farmLand(state.farm.at) : null,
+				)
 			: null;
 	});
 	constructor() {

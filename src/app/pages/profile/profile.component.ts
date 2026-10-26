@@ -1,6 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
+import { HeroStatusComponent } from '../../feature/dungeon/hero-status.component';
+import { HeroLootCardComponent } from '../../feature/dungeon/hero-loot-card.component';
 import { ELEMENTS } from '../../feature/element/element.data';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
 import { GameService, GameState } from '../../feature/game/game.service';
@@ -21,13 +23,17 @@ import { WorldService } from '../../feature/world/world.service';
 		AvatarComponent,
 		FactionElectionComponent,
 		FactionPickerComponent,
+		HeroLootCardComponent,
+		HeroStatusComponent,
 		RouterLink,
 		SettingsComponent,
 		TranslateDirective,
 	],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
+		<section class="w-full px-4 sm:px-6 t-page">
 			@if (user(); as user) {
+				<div class="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+				<aside class="grid gap-6 lg:sticky lg:top-6">
 				<div class="flex flex-wrap items-center gap-5">
 					<app-avatar [photoUrl]="user.photoURL" [name]="user.displayName" [size]="96" />
 					<div class="min-w-0">
@@ -46,7 +52,11 @@ import { WorldService } from '../../feature/world/world.service';
 					</div>
 				</div>
 
-				<div class="mt-8 grid gap-4 md:grid-cols-2">
+				<app-hero-status />
+				<app-hero-loot-card />
+				</aside>
+
+				<div class="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] items-start gap-4">
 					<section class="t-card" aria-labelledby="profile-lord">
 						<h2 id="profile-lord" class="t-item" translate>Лорд</h2>
 						@if (loading()) {
@@ -98,7 +108,7 @@ import { WorldService } from '../../feature/world/world.service';
 					</section>
 
 					@if (game()) {
-						<section class="t-card md:col-span-2" aria-labelledby="profile-faction">
+						<section class="t-card" aria-labelledby="profile-faction">
 							<h2 id="profile-faction" class="t-item" translate>Фракція</h2>
 							@if (chosenFaction(); as faction) {
 								<div class="faction-chosen mt-4" [style.--faction]="faction.color">
@@ -238,6 +248,7 @@ import { WorldService } from '../../feature/world/world.service';
 							<span translate>Вийти</span>
 						</button>
 					</section>
+				</div>
 				</div>
 			} @else {
 				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>

@@ -34,39 +34,35 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 @Component({
 	imports: [TranslateDirective, WorldOverviewComponent],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
+		<section class="onboarding mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
 			@if (loading()) {
 				<p class="text-[var(--c-text-muted)]" role="status" translate>Завантаження…</p>
 			} @else {
 				@let current = step();
 				@switch (current) {
 					@case ('element') {
-						<p class="t-numeral text-lg" translate>Крок 1 з 3</p>
-						<h1 class="mt-1 t-display" translate>Ваша перша локація</h1>
-						<p class="mt-4 max-w-[40rem] t-lead" translate>
-							Оберіть стихію, на якій вона постане.
-						</p>
+						<h1 class="t-display" translate>Оберіть стихію, на якій вона постане.</h1>
 
-						<form class="mt-8" (submit)="$event.preventDefault(); saveElement()">
-							<fieldset>
+						<form class="fit-form mt-6" (submit)="$event.preventDefault(); saveElement()">
+							<fieldset class="fit-fieldset">
 								<legend class="sr-only" translate>Стихія першої локації</legend>
-								<div class="grid gap-4 sm:grid-cols-2">
+								<div class="grid gap-4 sm:grid-cols-2 md:h-full">
 									@for (element of elements; track element.id) {
 										<label
-											class="choice-card t-card flex cursor-pointer flex-col gap-4"
+											class="choice-card t-card flex min-h-0 cursor-pointer flex-col gap-4"
 											[class.choice-card--selected]="element.id === selectedElement()"
 										>
 											<input
 												class="sr-only"
 												[checked]="element.id === selectedElement()"
-												(change)="selectElement(element.id)"
+												(click)="chooseElement(element.id)"
 												name="element"
 												type="radio"
 												[value]="element.id"
 											/>
 											@if (element.image) {
 												<img
-													class="aspect-[3/2] w-full rounded-[var(--t-radius)] object-cover"
+													class="aspect-[3/2] w-full rounded-[var(--t-radius)] object-cover md:aspect-auto md:min-h-0 md:flex-1"
 													[src]="element.image"
 													alt=""
 													width="1200"
@@ -74,7 +70,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 												/>
 											} @else {
 												<span
-													class="flex aspect-[3/2] w-full items-center justify-center rounded-[var(--t-radius)] bg-[var(--c-bg-tertiary)] text-[var(--c-primary-text)]"
+													class="flex aspect-[3/2] w-full items-center justify-center rounded-[var(--t-radius)] bg-[var(--c-bg-tertiary)] text-[var(--c-primary-text)] md:aspect-auto md:min-h-0 md:flex-1"
 													aria-hidden="true"
 												>
 													<span class="material-symbols-outlined choice-card__icon">
@@ -99,35 +95,17 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								</div>
 							</fieldset>
 
-							<div class="mt-8 flex flex-wrap items-center gap-3">
-								<button
-									class="btn btn--primary"
-									[disabled]="!selectedElement() || saving()"
-									type="submit"
-								>
-									<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-									<span translate>Далі</span>
-								</button>
-								<button class="btn" (click)="signOut()" type="button">
-									<span class="material-symbols-outlined" aria-hidden="true">logout</span>
-									<span translate>Вийти</span>
-								</button>
-							</div>
 						</form>
 					}
 
 					@case ('region') {
-						<p class="t-numeral text-lg" translate>Крок 2 з 3</p>
-						<h1 class="mt-1 t-display" translate>Місце на мапі</h1>
-						<p class="mt-4 max-w-[40rem] t-lead" translate>
-							Оберіть частину світу, де постане ваша перша локація.
-						</p>
+						<h1 class="t-display" translate>Оберіть частину світу, де постане ваша перша локація.</h1>
 
-						<form class="mt-8" (submit)="$event.preventDefault(); saveRegion()">
-							<fieldset>
+						<form class="fit-form mt-6" (submit)="$event.preventDefault(); saveRegion()">
+							<fieldset class="fit-fieldset">
 								<legend class="sr-only" translate>Частина світу</legend>
 								<div
-									class="world-map relative grid aspect-square w-full max-w-[32rem] grid-cols-2 gap-2 overflow-hidden p-2"
+									class="world-map relative grid aspect-square w-full max-w-[32rem] grid-cols-2 gap-2 overflow-hidden p-2 md:h-full md:max-h-full md:w-auto"
 									[style.background-image]="mapImage ? 'url(' + mapImage + ')' : null"
 								>
 									@if (!mapImage) {
@@ -141,7 +119,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 											<input
 												class="sr-only"
 												[checked]="region.id === selectedRegion()"
-												(change)="selectRegion(region.id)"
+												(click)="chooseRegion(region.id)"
 												name="region"
 												type="radio"
 												[value]="region.id"
@@ -158,29 +136,11 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								</div>
 							</fieldset>
 
-							<div class="mt-8 flex flex-wrap items-center gap-3">
-								<button
-									class="btn btn--primary"
-									[disabled]="!selectedRegion() || saving()"
-									type="submit"
-								>
-									<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-									<span translate>Далі</span>
-								</button>
-								<button class="btn" [disabled]="saving()" (click)="goTo('element')" type="button">
-									<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-									<span translate>Назад</span>
-								</button>
-							</div>
 						</form>
 					}
 
 					@case ('lord') {
-						<p class="t-numeral text-lg" translate>Крок 3 з 3</p>
-						<h1 class="mt-1 t-display" translate>Ваш лорд</h1>
-						<p class="mt-4 max-w-[40rem] t-lead" translate>
-							Назвіть того, хто поведе ваше поселення.
-						</p>
+						<h1 class="t-display" translate>Назвіть того, хто поведе ваше поселення.</h1>
 
 						<form class="mt-8 max-w-[32rem]" (submit)="$event.preventDefault(); saveLord()" novalidate>
 							<label class="writer-label" for="lord-name" translate>Ім'я лорда</label>
@@ -251,7 +211,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								</p>
 							}
 
-							<div class="mt-8 flex flex-wrap items-center gap-3">
+							<div class="mt-6 flex flex-wrap items-center gap-3 md:shrink-0">
 								<button class="btn btn--primary" [disabled]="saving()" type="submit">
 									<span class="material-symbols-outlined" aria-hidden="true">flag</span>
 									<span translate>Заснувати поселення</span>
@@ -267,7 +227,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 					@default never;
 				}
 
-				<div class="mt-4 min-h-7" aria-live="polite">
+				<div class="mt-2 min-h-7 md:shrink-0" aria-live="polite">
 					@if (error()) {
 						<p class="text-[var(--c-secondary)]" role="alert" translate>
 							Не вдалося зберегти. Спробуйте ще раз.
@@ -278,6 +238,28 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 		</section>
 	`,
 	styles: `
+		/* From tablets up the steps fit the window: the cards and the map take what the header and buttons leave. */
+		@media (min-width: 768px) {
+			.onboarding {
+				display: flex;
+				height: 100%;
+				flex-direction: column;
+				padding-block: 1.5rem;
+			}
+
+			.fit-form {
+				display: flex;
+				min-height: 0;
+				flex: 1;
+				flex-direction: column;
+			}
+
+			.fit-fieldset {
+				min-height: 0;
+				flex: 1;
+			}
+		}
+
 		.choice-card {
 			transition: border-color var(--motion-fast) var(--easing);
 
@@ -383,6 +365,25 @@ export class OnboardingComponent {
 				}
 			});
 		}
+	}
+
+	/** Picking a card is the answer: save it and move on. */
+	protected async chooseElement(element: ElementId) {
+		if (this.saving()) {
+			return;
+		}
+
+		this.selectElement(element);
+		await this.saveElement();
+	}
+
+	protected async chooseRegion(region: RegionId) {
+		if (this.saving()) {
+			return;
+		}
+
+		this.selectRegion(region);
+		await this.saveRegion();
 	}
 
 	protected selectElement(element: ElementId) {

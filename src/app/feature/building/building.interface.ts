@@ -21,6 +21,7 @@ export type BuildingId =
 	| 'stable'
 	| 'workshop'
 	| 'wall'
+	| 'infirmary'
 	| 'arena'
 	| 'tavern'
 	| 'castle'

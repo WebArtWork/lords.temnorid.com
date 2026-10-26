@@ -1,9 +1,18 @@
-import { Component, computed, inject, input, model } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, input, model, signal } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { CENTER_PLACE, VillageBuilding } from '../building/building.interface';
 import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
+import {
+	growth,
+	isCompact,
+	isPortrait,
+	landTurn,
+	mapViewBox,
+	pixelsPerUnit,
+	uprightTurn,
+} from '../map/map-view';
 import { VillageMap } from './village.interface';
 
 /** Draws a generated village. Slots are buttons; the picked one is two-way bound to `selected`. */
@@ -14,7 +23,7 @@ import { VillageMap } from './village.interface';
 			class="village-map block w-full"
 			[class.h-auto]="!fill()"
 			[class.h-full]="fill()"
-			[attr.viewBox]="'0 0 ' + map().width + ' ' + map().height"
+			[attr.viewBox]="viewBox()"
 			role="group"
 			[attr.aria-label]="labels().map"
 		>
@@ -24,6 +33,13 @@ import { VillageMap } from './village.interface';
 				</pattern>
 			</defs>
 
+			<!--
+				On a portrait screen the land turns a quarter round, so the long village runs down the
+				screen. Everything that stands on it (houses, trees, rocks, labels) turns back, so the
+				village is seen upright from another side.
+			-->
+			<g [attr.transform]="land()">
+
 			<!-- Three times the map, so when the map fills a box of another shape the spare room is ground too. -->
 			<rect [attr.x]="-map().width" [attr.y]="-map().height" [attr.width]="map().width * 3" [attr.height]="map().height * 3" [attr.fill]="palette().outer" />
 
@@ -32,9 +48,27 @@ import { VillageMap } from './village.interface';
 				<path [attr.d]="field" fill="url(#village-furrows)" />
 			}
 
+			@for (pond of map().ponds; track $index) {
+				<path [attr.d]="pond" [attr.fill]="palette().water" stroke="#4a7f94" stroke-width="4" />
+			}
+
+			@for (pit of map().pits; track $index) {
+				<path [attr.d]="pit.outer" fill="#b07448" stroke="#8a5533" stroke-width="3" />
+				<path [attr.d]="pit.inner" fill="none" stroke="#7d4a2c" stroke-width="5" opacity="0.55" />
+			}
+
+			@for (ore of map().ores; track $index) {
+				<g [attr.transform]="'translate(' + ore.x + ' ' + ore.y + ')' + upright()">
+					<path [attr.d]="orePath(ore.r)" fill="#463f3a" />
+					<circle [attr.cx]="ore.r * 0.2" [attr.cy]="-ore.r * 0.1" [attr.r]="ore.r * 0.22" fill="#b0603c" />
+				</g>
+			}
+
 			@for (rock of map().rocks; track $index) {
-				<ellipse [attr.cx]="rock.x" [attr.cy]="rock.y + rock.r * 0.35" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.75" [attr.fill]="palette().rockShade" />
-				<ellipse [attr.cx]="rock.x" [attr.cy]="rock.y" [attr.rx]="rock.r * 0.9" [attr.ry]="rock.r * 0.7" [attr.fill]="palette().rock" />
+				<g [attr.transform]="'translate(' + rock.x + ' ' + rock.y + ')' + upright()">
+					<ellipse cx="0" [attr.cy]="rock.r * 0.35" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.75" [attr.fill]="palette().rockShade" />
+					<ellipse cx="0" cy="0" [attr.rx]="rock.r * 0.9" [attr.ry]="rock.r * 0.7" [attr.fill]="palette().rock" />
+				</g>
 			}
 
 			<path [attr.d]="map().boundary" [attr.fill]="palette().ground" [attr.stroke]="palette().groundEdge" stroke-width="6" />
@@ -58,8 +92,10 @@ import { VillageMap } from './village.interface';
 			}
 
 			@for (rock of map().ridge; track $index) {
-				<ellipse [attr.cx]="rock.x" [attr.cy]="rock.y + rock.r * 0.3" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.8" [attr.fill]="palette().rockShade" />
-				<ellipse [attr.cx]="rock.x - rock.r * 0.1" [attr.cy]="rock.y - rock.r * 0.1" [attr.rx]="rock.r * 0.85" [attr.ry]="rock.r * 0.68" [attr.fill]="palette().rock" />
+				<g [attr.transform]="'translate(' + rock.x + ' ' + rock.y + ')' + upright()">
+					<ellipse cx="0" [attr.cy]="rock.r * 0.3" [attr.rx]="rock.r" [attr.ry]="rock.r * 0.8" [attr.fill]="palette().rockShade" />
+					<ellipse [attr.cx]="-rock.r * 0.1" [attr.cy]="-rock.r * 0.1" [attr.rx]="rock.r * 0.85" [attr.ry]="rock.r * 0.68" [attr.fill]="palette().rock" />
+				</g>
 			}
 
 			<path [attr.d]="map().plaza" [attr.fill]="palette().plaza" />
@@ -72,7 +108,7 @@ import { VillageMap } from './village.interface';
 			<g
 				class="village-slot village-center"
 				[class.village-slot--selected]="selected() === center"
-				[attr.transform]="'translate(' + map().centre.x + ' ' + map().centre.y + ')'"
+				[attr.transform]="'translate(' + map().centre.x + ' ' + map().centre.y + ')' + upright() + spriteScale()"
 				role="button"
 				tabindex="0"
 				[attr.aria-label]="slotLabel(center)"
@@ -110,12 +146,15 @@ import { VillageMap } from './village.interface';
 							<text class="village-building__level-text" y="1">{{ level }}</text>
 						</g>
 					}
-					@if (timeLeft(arena); as left) {
-						<g transform="translate(0 44)">
-							<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
-							<text class="village-building__timer-text" y="1">{{ left }}</text>
-						</g>
-					}
+					<g [attr.transform]="'translate(0 42) scale(' + labelScale() + ')'">
+						<text class="village-building__name" x="0" y="0">{{ nameOf(arena) }}</text>
+						@if (timeLeft(arena); as left) {
+							<g transform="translate(0 22)">
+								<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
+								<text class="village-building__timer-text" y="1">{{ left }}</text>
+							</g>
+						}
+					</g>
 				} @else {
 					@let heart = element();
 					@switch (heart) {
@@ -137,7 +176,7 @@ import { VillageMap } from './village.interface';
 			</g>
 
 			@for (tree of map().trees; track $index) {
-				<g [attr.transform]="'translate(' + tree.x + ' ' + tree.y + ')'">
+				<g [attr.transform]="'translate(' + tree.x + ' ' + tree.y + ')' + upright()">
 					<ellipse cx="0" [attr.cy]="tree.r * 0.75" [attr.rx]="tree.r * 0.8" [attr.ry]="tree.r * 0.3" fill="rgba(0,0,0,0.18)" />
 					@if (tree.conifer) {
 						<path [attr.d]="conifer(tree.r)" [attr.fill]="palette().treeDark" />
@@ -152,7 +191,7 @@ import { VillageMap } from './village.interface';
 				<g
 					class="village-slot"
 					[class.village-slot--selected]="slot.id === selected()"
-					[attr.transform]="'translate(' + slot.x + ' ' + slot.y + ')'"
+					[attr.transform]="'translate(' + slot.x + ' ' + slot.y + ')' + upright() + spriteScale()"
 					role="button"
 					tabindex="0"
 					[attr.aria-label]="slotLabel(slot.id)"
@@ -187,18 +226,23 @@ import { VillageMap } from './village.interface';
 								<text class="village-building__level-text" y="1">{{ level }}</text>
 							</g>
 						}
-						@if (timeLeft(building); as left) {
-							<g transform="translate(0 34)">
-								<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
-								<text class="village-building__timer-text" y="1">{{ left }}</text>
-							</g>
-						}
+						<!-- The name grows more than the house on small screens, so it stays readable. -->
+						<g [attr.transform]="'translate(0 32) scale(' + labelScale() + ')'">
+							<text class="village-building__name" x="0" y="0">{{ nameOf(building) }}</text>
+							@if (timeLeft(building); as left) {
+								<g transform="translate(0 22)">
+									<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
+									<text class="village-building__timer-text" y="1">{{ left }}</text>
+								</g>
+							}
+						</g>
 					} @else {
 						<ellipse class="village-slot__plot" cx="0" cy="0" rx="40" ry="25" />
 						<path class="village-slot__plus" d="M-8 0 H8 M0 -8 V8" />
 					}
 				</g>
 			}
+			</g>
 		</svg>
 	`,
 	styles: `
@@ -247,6 +291,19 @@ import { VillageMap } from './village.interface';
 			stroke: #6b4a2c;
 			stroke-linecap: round;
 			stroke-width: 3;
+		}
+
+		.village-building__name {
+			fill: #1d140d;
+			font-size: 13px;
+			font-weight: 700;
+			paint-order: stroke;
+			stroke: #fff8e8;
+			stroke-linejoin: round;
+			stroke-width: 3px;
+			text-anchor: middle;
+			dominant-baseline: central;
+			pointer-events: none;
 		}
 
 		.village-building__timer {
@@ -326,6 +383,37 @@ export class VillageMapComponent {
 	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
 	readonly fill = input(false);
 
+	/** The host's box, to tell a phone from a big screen and portrait from landscape. */
+	private readonly _box = signal({ width: 0, height: 0 });
+	/** Taller than wide: the land turns a quarter round to fit. Only when filling a box. */
+	protected readonly portrait = computed(() => this.fill() && isPortrait(this._box()));
+	/**
+	 * A big screen shows the whole map. A small one frames just the buildings: every place and the
+	 * square, with room for a roof above and a name and timer below (sized for buildings grown to
+	 * the full scale), so the village fills the screen and its names can be read.
+	 */
+	protected readonly viewBox = computed(() => {
+		const { slots, centre } = this.map();
+
+		return mapViewBox(
+			this.map(),
+			[centre, ...slots],
+			{ side: 95, above: 85, below: 125 },
+			this.fill() && isCompact(this._box()),
+			this.portrait(),
+		);
+	});
+	protected readonly land = computed(() => landTurn(this.map(), this.portrait()));
+	protected readonly upright = computed(() => uprightTurn(this.portrait()));
+	private readonly _pixels = computed(() => pixelsPerUnit(this._box(), this.viewBox()));
+	/** Buildings grow on small screens, up to 1.6 times, so they stay easy to see and tap. */
+	private readonly _sprite = computed(() => growth(this._pixels(), 0.8, 1.6));
+	protected readonly spriteScale = computed(() =>
+		this._sprite() === 1 ? '' : ` scale(${this._sprite()})`,
+	);
+	/** Names grow further, inside the grown building, so they read at about 12 pixels. */
+	protected readonly labelScale = computed(() => growth(this._pixels(), 0.92, 2.2) / this._sprite());
+
 	protected readonly palette = computed(() => this.map().palette);
 	protected readonly planks = [-16, -6, 4, 14];
 	protected readonly center = CENTER_PLACE;
@@ -350,6 +438,18 @@ export class VillageMapComponent {
 		};
 	});
 
+	constructor() {
+		const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) {
+				this._box.set({ width: entry.contentRect.width, height: entry.contentRect.height });
+			}
+		});
+
+		observer.observe(host);
+		inject(DestroyRef).onDestroy(() => observer.disconnect());
+	}
+
 	protected levelOf(building: VillageBuilding): number {
 		return levelAt(building, this.now());
 	}
@@ -363,6 +463,13 @@ export class VillageMapComponent {
 
 	protected iconOf(building: VillageBuilding): string {
 		return BUILDING_BY_ID[building.type]?.icon ?? 'home';
+	}
+
+	protected nameOf(building: VillageBuilding): string {
+		this._languageService.language();
+		const type = BUILDING_BY_ID[building.type];
+
+		return type ? this._translateService.translate(type.name)() : '';
 	}
 
 	protected slotLabel(id: number): string {
@@ -379,6 +486,11 @@ export class VillageMapComponent {
 
 	protected toggle(id: number) {
 		this.selected.update((current) => (current === id ? null : id));
+	}
+
+	/** A jagged ore rock round its own centre, as on the farm. */
+	protected orePath(r: number): string {
+		return `M${-r} ${r * 0.4} L${-r * 0.5} ${-r * 0.6} L${r * 0.2} ${-r} L${r} ${-r * 0.1} L${r * 0.7} ${r * 0.5} Z`;
 	}
 
 	/** Two stacked triangles, base at the trunk. */

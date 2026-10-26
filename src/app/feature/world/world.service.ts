@@ -10,7 +10,7 @@ import {
 	serverTimestamp,
 } from 'firebase/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
-import { GameState } from '../game/game.service';
+import type { GameState } from '../game/game.service';
 import { REGIONS } from '../region/region.data';
 import { settleSpot } from './world.generator';
 import { WorldCounts, WorldState, WorldVillage } from './world.interface';
@@ -28,7 +28,7 @@ export class WorldService {
 
 	/** Loads the world, settling the lord's village on the map first if it is not there yet. */
 	async load(game: GameState): Promise<WorldState> {
-		const mine = await this._settle(game);
+		const mine = await this.settle(game);
 		const [counts, villages] = await Promise.all([this._counts(), this._villages()]);
 
 		// Our own village is always shown, even if the list was cut off.
@@ -39,7 +39,7 @@ export class WorldService {
 		return { counts, villages, mine };
 	}
 
-	/** The lord's village on the map, or null before their first visit to the world. Read only. */
+	/** The lord's village on the map, or null if the game has not settled it yet. Read only. */
 	async mine(uid: string): Promise<WorldVillage | null> {
 		const snapshot = await getDoc(doc(this._firebase.db, 'lordsVillages', uid));
 
@@ -47,10 +47,13 @@ export class WorldService {
 	}
 
 	/**
-	 * Takes the next spot in the lord's quarter. One transaction bumps the quarter's count and
-	 * writes the village, so two lords founding at once never get the same spot.
+	 * The lord's village on the world map, taking the next spot in their quarter if it has none yet.
+	 * One transaction bumps the quarter's count and writes the village, so two lords founding at
+	 * once never get the same spot.
 	 */
-	private async _settle(game: GameState): Promise<WorldVillage> {
+	async settle(
+		game: Pick<GameState, 'uid' | 'lordName' | 'element' | 'region'>,
+	): Promise<WorldVillage> {
 		const db = this._firebase.db;
 		const villageRef = doc(db, 'lordsVillages', game.uid);
 		const existing = await getDoc(villageRef);

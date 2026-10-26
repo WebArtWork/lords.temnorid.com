@@ -1,6 +1,6 @@
 <header class="t-bar t-rule-b relative z-50">
 	<div
-		class="flex min-h-16 w-full flex-nowrap items-center md:flex-wrap justify-between gap-x-3 gap-y-2 sm:gap-x-6 overflow-visible px-4 py-3 sm:px-6 lg:px-8"
+		class="flex min-h-16 w-full flex-nowrap items-center md:flex-wrap justify-between gap-x-2 gap-y-2 sm:gap-x-6 overflow-visible px-3 py-3 sm:px-6 lg:px-8"
 	>
 		<!-- Signed in, the wordmark opens the world; signed out, the sign-in page. -->
 		<!-- On phones a signed-in player finds the wordmark's world link in the bottom bar. -->
@@ -35,7 +35,7 @@
 
 			@if (resources().length) {
 				<ul
-					class="topbar-resources grid shrink-0 grid-cols-3 gap-x-3 gap-y-0.5 md:flex md:items-center"
+					class="topbar-resources grid shrink-0 grid-cols-3 gap-x-2 gap-y-0.5 sm:gap-x-3"
 					[attr.aria-label]="resourcesLabel()"
 				>
 					@for (resource of resources(); track resource.id) {
@@ -84,23 +84,37 @@
 			}
 
 			<a
-				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full py-0.5 pl-2 pr-0.5 sm:gap-3 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
+				class="topbar-profile ml-auto theme-interactive theme-focus inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full pl-2 sm:gap-3 sm:pl-4 hover:bg-[var(--c-bg-tertiary)]"
 				[attr.aria-label]="profileLabel() + (playerName() ? ': ' + playerName() : '')"
 				routerLink="/profile"
 				routerLinkActive="topbar-profile--active"
 				ariaCurrentWhenActive="page"
 			>
-				@if (playerName()) {
-					<span
-						class="min-w-0 max-w-[12rem] truncate font-semibold text-[var(--c-text-strong)]"
-						>{{ playerName() }}</span
-					>
-				}
+				<!-- Sized to the two rows of resources beside it, so it never makes the bar taller. -->
+				<span class="topbar-profile__text flex min-w-0 flex-col">
+					@if (playerName()) {
+						<span class="truncate text-[15px] font-semibold leading-5 text-[var(--c-text-strong)]">{{ playerName() }}</span>
+					}
+					@if (hero(); as hero) {
+						<span
+							class="topbar-hero__track my-1"
+							role="meter"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							[attr.aria-valuenow]="hero.health"
+							[attr.aria-label]="hero.label"
+							[title]="hero.label + ': ' + hero.health"
+						>
+							<span class="topbar-hero__bar block" [style.width.%]="hero.health"></span>
+						</span>
+						<span class="truncate text-xs leading-4 text-[var(--c-text-muted)]" [title]="hero.text">{{ hero.text }}</span>
+					}
+				</span>
 				<app-avatar
 					class="shrink-0 overflow-hidden rounded-full border border-[var(--c-border)]"
 					[photoUrl]="user.photoURL"
 					[name]="user.displayName"
-					[size]="40"
+					[size]="48"
 				/>
 			</a>
 		} @else {

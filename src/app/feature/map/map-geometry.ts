@@ -14,6 +14,11 @@ export interface Blob {
 	rx: number;
 	ry: number;
 	harmonics: { k: number; a: number; p: number }[];
+	/**
+	 * Squareness: 2 (or unset) is an oval, higher values square off the sides toward a rounded
+	 * rectangle (a superellipse). Never smaller than 2, so a squared blob always contains its oval.
+	 */
+	squareness?: number;
 }
 
 export function makeBlob(rng: Rng, cx: number, cy: number, rx: number, ry: number, wobble: number): Blob {
@@ -27,7 +32,17 @@ export function makeBlob(rng: Rng, cx: number, cy: number, rx: number, ry: numbe
 }
 
 export function blobRadius(blob: Blob, angle: number): number {
-	return blob.harmonics.reduce((r, h) => r + h.a * Math.sin(h.k * angle + h.p), 1);
+	const wobble = blob.harmonics.reduce((r, h) => r + h.a * Math.sin(h.k * angle + h.p), 1);
+	const n = blob.squareness ?? 2;
+
+	if (n === 2) {
+		return wobble;
+	}
+
+	// Radius of the unit superellipse |x|^n + |y|^n = 1 in this direction.
+	const square = (Math.abs(Math.cos(angle)) ** n + Math.abs(Math.sin(angle)) ** n) ** (-1 / n);
+
+	return wobble * square;
 }
 
 /** Angle and distance in the blob's own unit-circle space. */
@@ -95,6 +110,12 @@ export function poisson(
 	height: number,
 	minDistance: number,
 	accept: (x: number, y: number) => boolean,
+	/**
+	 * Fresh random starts to try once the spread runs out. Sampling only grows outward from points
+	 * it has, so separate patches (two forests) are reached only through a new start. 0 keeps the
+	 * old behaviour, which saved maps rely on.
+	 */
+	restarts = 0,
 ): Point[] {
 	const cell = minDistance / Math.SQRT2;
 	const columns = Math.ceil(width / cell);
@@ -160,6 +181,14 @@ export function poisson(
 
 		if (!found) {
 			active.splice(slot, 1);
+		}
+
+		for (let i = 0; i < restarts && !active.length; i++) {
+			const p = { x: rng() * width, y: rng() * height };
+
+			if (fits(p)) {
+				add(p);
+			}
 		}
 	}
 

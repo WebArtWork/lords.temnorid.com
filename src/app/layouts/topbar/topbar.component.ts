@@ -7,7 +7,10 @@ import type { Language } from '@wawjs/ngx-translate';
 import type { AppLanguage } from '../../../environments/environment.prod';
 import { AvatarComponent } from '../../feature/profile/avatar.component';
 import { nowSignal } from '../../feature/building/building.timing';
+import { DUNGEON_BY_ID } from '../../feature/dungeon/dungeon.data';
+import { heroHealth, heroStatus } from '../../feature/dungeon/hero';
 import { capacity, productionPerHour, stockAt } from '../../feature/economy/economy';
+import { formatDuration } from '../../feature/building/building.timing';
 import { villageStrength } from '../../feature/military/military';
 import { RESOURCES } from '../../feature/resource/resource.data';
 import { SessionService } from '../../feature/session/session.service';
@@ -86,6 +89,36 @@ export class TopbarComponent {
 			defenseLabel: t('Сила захисту'),
 			attackTitle: `${t('Сила нападу')}: ${attack}. ${t("Військо з'явиться згодом.")}`,
 			defenseTitle: `${t('Сила захисту')}: ${defense}${wall}`,
+		};
+	});
+	/** The hero's whereabouts and health, in two small rows beside the strength. */
+	protected readonly hero = computed(() => {
+		this.activeLanguage();
+		const game = this._session.game();
+
+		if (!game) {
+			return null;
+		}
+
+		const t = (text: string) => this._translateService.translate(text)();
+		const now = this._now();
+		const buildings = game.village.buildings ?? {};
+		const expedition = game.hero.expedition;
+		const status = heroStatus(game.hero, now, buildings);
+		const left = (until: number) => formatDuration((until - now) / 1000);
+		const text =
+			status === 'away'
+				? `${t(DUNGEON_BY_ID[expedition!.dungeon].name)} · ${left(expedition!.endsAt)}`
+				: status === 'back'
+					? t('Повернувся зі здобиччю')
+					: status === 'infirmary'
+						? t('Загинув у темниці.')
+						: t('Вдома, готовий до походу');
+
+		return {
+			text,
+			health: Math.floor(heroHealth(game.hero, now, buildings)),
+			label: t("Здоров'я героя"),
 		};
 	});
 	protected readonly resourcesLabel = computed(() => {

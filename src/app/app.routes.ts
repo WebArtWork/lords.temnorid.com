@@ -76,6 +76,15 @@ export const routes: Routes = [
 			import('./pages/dungeons/dungeons.component').then((m) => m.DungeonsComponent),
 	},
 	{
+		path: 'dungeons/:id',
+		canActivate: [authGuard],
+		data: {
+			meta: buildRouteMeta(companyProfile, '/dungeons'),
+		},
+		loadComponent: () =>
+			import('./pages/dungeon/dungeon.component').then((m) => m.DungeonComponent),
+	},
+	{
 		path: 'world',
 		canActivate: [authGuard],
 		data: {

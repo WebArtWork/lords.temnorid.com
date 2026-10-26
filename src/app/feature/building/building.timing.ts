@@ -1,5 +1,5 @@
 import { DestroyRef, inject, signal } from '@angular/core';
-import { BuildingType, Construction, VillageBuilding } from './building.interface';
+import { BuildingId, BuildingType, Construction, VillageBuilding } from './building.interface';
 
 /**
  * Construction takes time, as in Travian. Level 1 of the smallest building takes MIN_BUILD_SECONDS;
@@ -40,9 +40,18 @@ export function runningUpgrade(building: Construction, now: number) {
 
 /** The lord's hall level by `now`, 0 when there is none. */
 export function hallLevel(buildings: Record<string, VillageBuilding>, now: number): number {
-	const hall = Object.values(buildings).find((building) => building.type === 'lords-hall');
+	return buildingLevel(buildings, 'lords-hall', now);
+}
 
-	return hall ? levelAt(hall, now) : 0;
+/** The highest level of a kind of building by `now`, 0 when none stands. */
+export function buildingLevel(
+	buildings: Record<string, VillageBuilding>,
+	type: BuildingId,
+	now: number,
+): number {
+	return Object.values(buildings)
+		.filter((building) => building.type === type)
+		.reduce((best, building) => Math.max(best, levelAt(building, now)), 0);
 }
 
 /** How many constructions a village runs at once, buildings and farm plots together. */

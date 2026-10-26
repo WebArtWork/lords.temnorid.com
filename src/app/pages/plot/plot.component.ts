@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
@@ -27,8 +28,10 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 @Component({
 	imports: [TranslateDirective],
 	template: `
-		<section class="mx-auto max-w-[var(--container)] px-4 py-6 sm:px-6 sm:py-8">
+		<section class="w-full px-4 py-6 sm:px-6 sm:py-8">
 			@if (view(); as view) {
+				<div class="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+				<aside class="lg:sticky lg:top-6">
 				<div class="flex flex-wrap items-center gap-4">
 					<span
 						class="plot-icon material-symbols-outlined"
@@ -49,9 +52,10 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 					<span class="font-semibold tabular-nums">{{ view.perHour }}</span>
 					<span translate>за годину</span>
 				</p>
+				</aside>
 
 				<section
-					class="mt-8 max-w-[36rem] t-card"
+					class="t-card max-w-[36rem]"
 					aria-labelledby="plot-work"
 					aria-live="polite"
 				>
@@ -148,6 +152,7 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 						}
 					}
 				</section>
+				</div>
 			} @else if (missing()) {
 				<p class="text-[var(--c-text-muted)]" translate>
 					Такої ділянки немає у ваших угіддях.
@@ -196,6 +201,7 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 export class PlotComponent {
 	private readonly _game = inject(GameService);
 	private readonly _router = inject(Router);
+	private readonly _location = inject(Location);
 	private readonly _translateService = inject(TranslateService);
 	private readonly _languageService = inject(LanguageService);
 	private readonly _now = nowSignal();
@@ -271,17 +277,21 @@ export class PlotComponent {
 		void this._load();
 	}
 
+	/** Starts the upgrade and leaves at once; the game updates itself when the save lands. */
 	protected async upgrade() {
 		this.upgrading.set(true);
 		this.failed.set(false);
 
-		try {
-			await this._game.upgradePlot(Number(this.id()));
-		} catch (error) {
-			console.error(error);
-			this.failed.set(true);
-		} finally {
-			this.upgrading.set(false);
+		this._game.upgradePlot(Number(this.id())).catch((error) => console.error(error));
+		await this._leave();
+	}
+
+	/** Back to the page the lord came from; the farm when the page was opened directly. */
+	private async _leave() {
+		if (history.state?.navigationId > 1) {
+			this._location.back();
+		} else {
+			await this._router.navigateByUrl('/farm');
 		}
 	}
 

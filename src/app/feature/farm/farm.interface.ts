@@ -13,6 +13,11 @@ export interface FarmSave {
 	seed: number;
 	layout: number;
 	plots: FarmPlot[];
+	/**
+	 * The village's tile on the world map, which the farm's land is read from (see farmLand). Set
+	 * once the village has its place; farms laid out before that learn it on a later load.
+	 */
+	at?: Point;
 	/** How far each plot has been worked, by plot id. Plots not listed are at level 0. */
 	levels?: Record<string, Construction>;
 }

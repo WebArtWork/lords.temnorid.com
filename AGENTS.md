@@ -14,8 +14,7 @@ APIs must be imported from `@wawjs/ngx-default`.
 - Main goal: fast, clean, SEO-friendly HoReCa landing pages
 - Primary output: prerendered static site from `dist/app/browser`
 - Local app source: `src/`
-- App-owned data bridge and company profile: `src/app/feature/bootstrap/` and
-  `src/app/feature/company/`
+- App-owned company profile: `src/app/feature/company/`
 - Reusable package: `@wawjs/ngx-default`
 - Package guidance: `node_modules/@wawjs/ngx-default/ai/`
 

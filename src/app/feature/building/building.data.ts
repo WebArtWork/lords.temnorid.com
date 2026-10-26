@@ -234,6 +234,16 @@ export const BUILDINGS: BuildingType[] = [
 		center: true,
 	},
 	{
+		id: 'infirmary',
+		category: 'military',
+		name: 'Шпиталь',
+		description:
+			'Тут лікують поранених. Сюди принесуть героя, якщо він загине в темниці, а згодом і воїнів із битв. Що вищий рівень, то швидше одужують.',
+		icon: 'local_hospital',
+		cost: { wood: 140, stone: 120, clay: 110, water: 90, grain: 60 },
+		requires: ['lords-hall'],
+	},
+	{
 		id: 'wall',
 		category: 'military',
 		name: 'Мур',

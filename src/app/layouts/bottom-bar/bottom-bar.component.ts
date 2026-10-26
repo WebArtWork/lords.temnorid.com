@@ -55,8 +55,8 @@ export class BottomBarComponent {
 	protected readonly user = inject(SessionService).user;
 	protected readonly places = [
 		{ path: '/world', label: 'Лорди', icon: 'public' },
-		{ path: '/village', label: 'Поселення', icon: 'cottage' },
 		{ path: '/farm', label: 'Угіддя', icon: 'agriculture' },
+		{ path: '/village', label: 'Поселення', icon: 'cottage' },
 		{ path: '/dungeons', label: 'Темниці', icon: 'skull' },
 	];
 }

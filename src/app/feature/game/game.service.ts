@@ -11,7 +11,15 @@ import {
 } from '../building/building.timing';
 import { DUNGEON_BY_ID, DungeonId } from '../dungeon/dungeon.data';
 import { FactionId } from '../faction/faction.data';
-import { cannotGo, HeroSave, heroHealth, heroStatus, newHero, rollLoot } from '../dungeon/hero';
+import {
+	cannotGo,
+	HeroSave,
+	heroHealth,
+	heroStatus,
+	newHero,
+	rollDamage,
+	rollLoot,
+} from '../dungeon/hero';
 import {
 	Amounts,
 	capacity,
@@ -25,12 +33,14 @@ import {
 } from '../economy/economy';
 import { ElementId } from '../element/element.interface';
 import { FARM_LAYOUT, generateFarmPlots } from '../farm/farm.generator';
+import { farmLand } from '../farm/farm.land';
 import { FarmSave } from '../farm/farm.interface';
 import { FirebaseService } from '../firebase/firebase.service';
-import { createSeed } from '../map/map-geometry';
+import { createSeed, Point } from '../map/map-geometry';
 import { isOnboarded, LordsProgress, ProgressService } from '../progress/progress.service';
 import { RegionId } from '../region/region.interface';
 import { generateVillageSlots, VILLAGE_LAYOUT } from '../village/village.generator';
+import { WorldService } from '../world/world.service';
 import { VillageSave } from '../village/village.interface';
 
 /** Everything the in-game pages need about the signed-in lord. */
@@ -54,6 +64,7 @@ export interface GameState {
 export class GameService {
 	private readonly _firebase = inject(FirebaseService);
 	private readonly _progress = inject(ProgressService);
+	private readonly _world = inject(WorldService);
 	private _cache: GameState | null = null;
 	/** The load in flight, shared so the top bar and a page never found the maps twice. */
 	private _loading: Promise<GameState | null> | null = null;
@@ -87,7 +98,16 @@ export class GameService {
 
 		const element = progress.firstLocation!.element!;
 		const region = progress.firstLocation!.region!;
-		const maps = this._missingMaps(progress, element, region);
+		const lord = { uid: user.uid, lordName: progress.lord!.name!, element, region };
+		// The village takes its place on the world map before its farm is laid out, so the farm
+		// can follow the land round it.
+		const at = progress.farm?.at ?? (await this._worldTile(lord));
+		const maps = this._missingMaps(progress, element, region, at);
+
+		// A farm laid out before it knew its land learns where it stands, once.
+		if (progress.farm && !progress.farm.at && at) {
+			maps.farm = { ...progress.farm, at };
+		}
 
 		if (maps.village || maps.farm) {
 			await this._progress.setMaps(user.uid, maps);
@@ -113,7 +133,7 @@ export class GameService {
 			element,
 			region,
 			village: progress.village ?? maps.village!,
-			farm: progress.farm ?? maps.farm!,
+			farm: maps.farm ?? progress.farm!,
 			stock,
 			hero,
 			faction: progress.faction ?? null,
@@ -268,18 +288,22 @@ export class GameService {
 		const now = Date.now();
 		const dungeon = DUNGEON_BY_ID[id];
 
-		if (cannotGo(game.hero, dungeon, now)) {
+		const buildings = game.village.buildings ?? {};
+
+		if (cannotGo(game.hero, dungeon, now, buildings)) {
 			throw new Error('The hero cannot go.');
 		}
 
 		const hero: HeroSave = {
-			health: heroHealth(game.hero, now) - dungeon.damage,
+			// The wounds are taken when the hero is back (see heroHealth), not now.
+			health: heroHealth(game.hero, now, buildings),
 			at: now,
 			expedition: {
 				dungeon: id,
 				startedAt: now,
 				endsAt: now + dungeon.minutes * 60_000,
 				loot: rollLoot(dungeon),
+				damage: rollDamage(dungeon),
 			},
 		};
 
@@ -293,7 +317,9 @@ export class GameService {
 		const now = Date.now();
 		const expedition = game.hero.expedition;
 
-		if (!expedition || heroStatus(game.hero, now) !== 'back') {
+		const buildings = game.village.buildings ?? {};
+
+		if (!expedition || heroStatus(game.hero, now, buildings) !== 'back') {
 			throw new Error('The hero has nothing to hand over.');
 		}
 
@@ -307,7 +333,11 @@ export class GameService {
 			}),
 		) as Amounts;
 		const stock: StockSave = { amounts, at: now };
-		const hero: HeroSave = { health: heroHealth(game.hero, now), at: now, expedition: null };
+		const hero: HeroSave = {
+			health: heroHealth(game.hero, now, buildings),
+			at: now,
+			expedition: null,
+		};
 
 		await this._progress.setHero(game.uid, hero, stock);
 		this._update({ ...game, hero, stock });
@@ -336,7 +366,27 @@ export class GameService {
 	}
 
 	/** Generates whichever maps this lord does not have yet. */
-	private _missingMaps(progress: LordsProgress, element: ElementId, region: RegionId) {
+	/**
+	 * The village's tile on the world map, settling it there if needed. Null when the world cannot
+	 * be reached: the farm then leans on the region, and learns its land on a later load.
+	 */
+	private async _worldTile(lord: Pick<GameState, 'uid' | 'lordName' | 'element' | 'region'>) {
+		try {
+			const { x, y } = await this._world.settle(lord);
+
+			return { x, y };
+		} catch (error) {
+			console.error(error);
+			return null;
+		}
+	}
+
+	private _missingMaps(
+		progress: LordsProgress,
+		element: ElementId,
+		region: RegionId,
+		at: Point | null,
+	) {
 		const maps: Pick<LordsProgress, 'village' | 'farm'> = {};
 
 		if (!progress.village) {
@@ -351,7 +401,9 @@ export class GameService {
 			maps.farm = {
 				seed,
 				layout: FARM_LAYOUT,
-				plots: generateFarmPlots(seed, element, region),
+				plots: generateFarmPlots(seed, element, region, at ? farmLand(at) : null),
+				// Firestore refuses undefined fields, so `at` is only set when known.
+				...(at ? { at } : {}),
 			};
 		}
 

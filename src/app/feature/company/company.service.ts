@@ -5,7 +5,7 @@ import { Company, CompanyProfile } from './company.interface';
 @Service()
 export class CompanyService {
 	readonly company = signal<CompanyProfile>(COMPANY_FALLBACK);
-	readonly loading = signal(true);
+	readonly loading = signal(false);
 
 	setFallbackCompany(company: CompanyProfile) {
 		this.company.set(company);

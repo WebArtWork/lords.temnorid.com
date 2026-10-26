@@ -66,7 +66,13 @@ export interface VillageMap {
 	bridges: VillageBridge[];
 	/** Rock ridge along the edge of the village. */
 	ridge: VillageRock[];
+	/** The farm beyond the walls (see farmSurroundings): grain fields, ponds, clay pits. */
 	fields: string[];
+	ponds: string[];
+	pits: { outer: string; inner: string }[];
 	trees: VillageTree[];
+	/** Boulders, thickest where the farm quarries stone. */
 	rocks: VillageRock[];
+	/** Iron ore where the farm mines it. */
+	ores: VillageRock[];
 }
