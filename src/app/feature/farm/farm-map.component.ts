@@ -140,8 +140,8 @@ import { FarmMap } from './farm.interface';
 						{{ resources[plot.resource].icon }}
 					</text>
 					@if (levelOf(plot.id); as level) {
-						<g transform="translate(20 -20)">
-							<circle class="farm-plot__level" r="11" />
+						<g transform="translate(24 -24)">
+							<circle class="farm-plot__level" r="16" />
 							<text class="farm-plot__level-text" y="1">{{ level }}</text>
 						</g>
 					}
@@ -181,6 +181,7 @@ import { FarmMap } from './farm.interface';
 
 		.farm-plot__level-text {
 			fill: #1d140d;
+			font-size: 24px;
 		}
 
 		.farm-plot__timer {

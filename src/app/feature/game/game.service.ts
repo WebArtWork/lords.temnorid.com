@@ -37,6 +37,17 @@ import { farmLand } from '../farm/farm.land';
 import { FarmSave } from '../farm/farm.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { createSeed, Point } from '../map/map-geometry';
+import {
+	cannotTrade,
+	TradeError,
+	marketLevel,
+	npcReceive,
+	Offer,
+	OFFER_MAX_AMOUNT,
+	swap,
+} from '../market/market';
+import { MarketService } from '../market/market.service';
+import { ResourceId } from '../resource/resource.interface';
 import { isOnboarded, LordsProgress, ProgressService } from '../progress/progress.service';
 import { RegionId } from '../region/region.interface';
 import { generateVillageSlots, VILLAGE_LAYOUT } from '../village/village.generator';
@@ -65,6 +76,7 @@ export class GameService {
 	private readonly _firebase = inject(FirebaseService);
 	private readonly _progress = inject(ProgressService);
 	private readonly _world = inject(WorldService);
+	private readonly _market = inject(MarketService);
 	private _cache: GameState | null = null;
 	/** The load in flight, shared so the top bar and a page never found the maps twice. */
 	private _loading: Promise<GameState | null> | null = null;
@@ -341,6 +353,129 @@ export class GameService {
 
 		await this._progress.setHero(game.uid, hero, stock);
 		this._update({ ...game, hero, stock });
+	}
+
+	/** Swaps goods with the NPC merchants at once, at the rate the marketplace level earns. */
+	async exchange(give: ResourceId, giveAmount: number, want: ResourceId): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const buildings = game.village.buildings ?? {};
+		const receive = npcReceive(giveAmount, marketLevel(buildings, now));
+		const available = this.stockNow(game, now);
+		const reason = cannotTrade(available, buildings, now, give, giveAmount, want, receive);
+
+		if (reason) {
+			throw new TradeError(reason);
+		}
+
+		const stock: StockSave = { amounts: swap(available, give, giveAmount, want, receive), at: now };
+
+		await this._progress.setStock(game.uid, stock);
+		this._update({ ...game, stock });
+	}
+
+	/** Lists an offer on the board; the goods leave the stores until it is bought or cancelled. */
+	async postOffer(
+		give: ResourceId,
+		giveAmount: number,
+		want: ResourceId,
+		wantAmount: number,
+	): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const available = this.stockNow(game, now);
+
+		if (give === want || !this._validAmount(giveAmount) || !this._validAmount(wantAmount)) {
+			throw new TradeError('Пропозиція недійсна.');
+		}
+
+		if (giveAmount > available[give]) {
+			throw new TradeError('Бракує ресурсів');
+		}
+
+		const stock: StockSave = {
+			amounts: { ...available, [give]: available[give] - giveAmount },
+			at: now,
+		};
+
+		await this._market.post(
+			{ uid: game.uid, lordName: game.lordName, give, giveAmount, want, wantAmount },
+			stock,
+		);
+		this._update({ ...game, stock });
+	}
+
+	/** Takes an unsold offer back; its goods return to the stores even past their capacity. */
+	async cancelOffer(offer: Offer): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const stock = this._credited(game, now, offer.give, offer.giveAmount);
+
+		await this._market.cancel(game.uid, offer.id, stock);
+		this._update({ ...game, stock });
+	}
+
+	/** Buys another lord's offer: pays what they ask and receives what they listed. */
+	async buyOffer(offer: Offer): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		let stock = null as StockSave | null;
+
+		await this._market.accept(game.uid, game.lordName, offer.id, (listed) => {
+			const available = this.stockNow(game, now);
+			const reason = cannotTrade(
+				available,
+				game.village.buildings ?? {},
+				now,
+				listed.want,
+				listed.wantAmount,
+				listed.give,
+				listed.giveAmount,
+			);
+
+			if (reason) {
+				throw new TradeError(reason);
+			}
+
+			stock = {
+				amounts: swap(available, listed.want, listed.wantAmount, listed.give, listed.giveAmount),
+				at: now,
+			};
+
+			return stock;
+		});
+
+		if (stock) {
+			this._update({ ...game, stock });
+		}
+	}
+
+	/** Collects what a buyer paid for the lord's offer. */
+	async collectOffer(offer: Offer): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		let stock = null as StockSave | null;
+
+		await this._market.collect(game.uid, offer.id, (filled) => {
+			stock = this._credited(game, now, filled.want, filled.wantAmount);
+
+			return stock;
+		});
+
+		if (stock) {
+			this._update({ ...game, stock });
+		}
+	}
+
+	private _validAmount(amount: number) {
+		return Number.isInteger(amount) && amount >= 1 && amount <= OFFER_MAX_AMOUNT;
+	}
+
+	/** The stores with `amount` of a resource added, not held back by capacity so nothing is lost. */
+	private _credited(game: GameState, now: number, id: ResourceId, amount: number): StockSave {
+		const available = this.stockNow(game, now);
+
+		return { amounts: { ...available, [id]: available[id] + amount }, at: now };
 	}
 
 	/** Joins a faction; a lord can change sides at any time for now. */

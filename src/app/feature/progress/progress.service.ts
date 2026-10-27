@@ -8,6 +8,7 @@ import { Construction, VillageBuilding } from '../building/building.interface';
 import { StockSave } from '../economy/economy';
 import { HeroSave } from '../dungeon/hero';
 import { FactionId } from '../faction/faction.data';
+import { LordLook } from '../lord/lord.data';
 import { VillageSave } from '../village/village.interface';
 
 /** A player's Lords save. */
@@ -19,6 +20,11 @@ export interface LordsProgress {
 	/** The character who leads the village. */
 	lord?: {
 		name?: string;
+		/** What the lord looks like and does; see lord.data.ts. */
+		gender?: string;
+		face?: string;
+		hairstyle?: string;
+		class?: string;
 	};
 	/** The lord's stores at one moment; see economy.ts. */
 	stock?: StockSave;
@@ -66,8 +72,8 @@ export class ProgressService {
 		await this._saveFirstLocation(uid, { region });
 	}
 
-	async setLordName(uid: string, name: string) {
-		await this._merge(uid, { lord: { name } });
+	async setLord(uid: string, name: string, look: LordLook) {
+		await this._merge(uid, { lord: { name, ...look } });
 	}
 
 	async setMaps(uid: string, maps: Pick<LordsProgress, 'village' | 'farm'>) {
@@ -109,6 +115,11 @@ export class ProgressService {
 			{ stock, farm: { levels: { [plot]: construction } }, updatedAt: serverTimestamp() },
 			{ merge: true },
 		);
+	}
+
+	/** The save's document, for writes that must land in one batch or transaction with another. */
+	ref(uid: string) {
+		return this._ref(uid);
 	}
 
 	private async _saveFirstLocation(uid: string, firstLocation: LordsProgress['firstLocation']) {

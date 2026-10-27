@@ -9,6 +9,14 @@ export const NAMES_URL = 'https://temnorid.com/names.json';
 export interface NamePool {
 	firstNames: string[];
 	secondNames: string[];
+	/**
+	 * Optional gendered lists. temnorid.com adds them to names.json; until it does (or for a part
+	 * that has no list) the shared `firstNames` / `secondNames` serve both genders.
+	 */
+	firstNamesMale?: string[];
+	firstNamesFemale?: string[];
+	secondNamesMale?: string[];
+	secondNamesFemale?: string[];
 	/** Released characters; a generated name must not repeat one. */
 	existingNames: string[];
 }
@@ -17,6 +25,23 @@ export interface NamePool {
 export interface NameParts {
 	first: string;
 	second: string;
+}
+
+/** The lord's gender as lord.data.ts spells it. */
+export type NameGender = 'male' | 'female' | (string & {});
+
+/** The first names that fit a gender. */
+export function firstNamesFor(pool: NamePool, gender: NameGender): string[] {
+	const list = gender === 'female' ? pool.firstNamesFemale : pool.firstNamesMale;
+
+	return list?.length ? list : pool.firstNames;
+}
+
+/** The second names that fit a gender. */
+export function secondNamesFor(pool: NamePool, gender: NameGender): string[] {
+	const list = gender === 'female' ? pool.secondNamesFemale : pool.secondNamesMale;
+
+	return list?.length ? list : pool.secondNames;
 }
 
 /** Rerolls before giving up on avoiding a taken name; the pool is far larger than that. */
@@ -28,6 +53,7 @@ const ATTEMPTS = 50;
  */
 export function generateName(
 	pool: NamePool,
+	gender: NameGender,
 	locked: Partial<NameParts>,
 	maxLength: number,
 ): NameParts {
@@ -36,8 +62,8 @@ export function generateName(
 
 	for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 		parts = {
-			first: locked.first ?? _pick(pool.firstNames),
-			second: locked.second ?? _pick(pool.secondNames),
+			first: locked.first ?? _pick(firstNamesFor(pool, gender)),
+			second: locked.second ?? _pick(secondNamesFor(pool, gender)),
 		};
 
 		const name = joinName(parts);

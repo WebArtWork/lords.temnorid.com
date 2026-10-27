@@ -1,4 +1,4 @@
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, effect, inject, PLATFORM_ID, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
@@ -6,11 +6,20 @@ import { ELEMENTS } from '../../feature/element/element.data';
 import { ElementId } from '../../feature/element/element.interface';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
 import {
+	cleanLook,
+	defaultLook,
+	LORD_CATEGORIES,
+	LordLook,
+	LordLookKey,
+} from '../../feature/lord/lord.data';
+import {
+	firstNamesFor,
 	generateName,
 	joinName,
 	NameParts,
 	NamePool,
 	NamesService,
+	secondNamesFor,
 } from '../../feature/names/names.service';
 import {
 	isOnboarded,
@@ -32,7 +41,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
  * the first or second name and reroll the other, or type their own.
  */
 @Component({
-	imports: [TranslateDirective, WorldOverviewComponent],
+	imports: [NgTemplateOutlet, TranslateDirective, WorldOverviewComponent],
 	template: `
 		<section class="onboarding mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page">
 			@if (loading()) {
@@ -41,15 +50,15 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 				@let current = step();
 				@switch (current) {
 					@case ('element') {
-						<h1 class="t-display" translate>Оберіть стихію, на якій вона постане.</h1>
+						<h1 class="t-display" translate>Оберіть стихію</h1>
 
 						<form class="fit-form mt-6" (submit)="$event.preventDefault(); saveElement()">
 							<fieldset class="fit-fieldset">
 								<legend class="sr-only" translate>Стихія першої локації</legend>
-								<div class="grid gap-4 sm:grid-cols-2 md:h-full">
+								<div class="grid grid-cols-2 gap-3 sm:gap-4 md:h-full">
 									@for (element of elements; track element.id) {
 										<label
-											class="choice-card t-card flex min-h-0 cursor-pointer flex-col gap-4"
+											class="choice-card t-card flex min-h-0 cursor-pointer flex-col gap-3 sm:gap-4"
 											[class.choice-card--selected]="element.id === selectedElement()"
 										>
 											<input
@@ -62,7 +71,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 											/>
 											@if (element.image) {
 												<img
-													class="aspect-[3/2] w-full rounded-[var(--t-radius)] object-cover md:aspect-auto md:min-h-0 md:flex-1"
+													class="aspect-[4/5] w-full sm:aspect-[3/2] rounded-[var(--t-radius)] object-cover md:aspect-auto md:min-h-0 md:flex-1"
 													[src]="element.image"
 													alt=""
 													width="1200"
@@ -70,7 +79,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 												/>
 											} @else {
 												<span
-													class="flex aspect-[3/2] w-full items-center justify-center rounded-[var(--t-radius)] bg-[var(--c-bg-tertiary)] text-[var(--c-primary-text)] md:aspect-auto md:min-h-0 md:flex-1"
+													class="flex aspect-[4/5] w-full sm:aspect-[3/2] items-center justify-center rounded-[var(--t-radius)] bg-[var(--c-bg-tertiary)] text-[var(--c-primary-text)] md:aspect-auto md:min-h-0 md:flex-1"
 													aria-hidden="true"
 												>
 													<span class="material-symbols-outlined choice-card__icon">
@@ -87,7 +96,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 													check_circle
 												</span>
 											</span>
-											<span class="leading-7" [translate]="element.description">
+											<span class="text-sm leading-6 sm:text-base sm:leading-7" [translate]="element.description">
 												{{ element.description }}
 											</span>
 										</label>
@@ -99,7 +108,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 					}
 
 					@case ('region') {
-						<h1 class="t-display" translate>Оберіть частину світу, де постане ваша перша локація.</h1>
+						<h1 class="t-display" translate>Оберіть локацію</h1>
 
 						<form class="fit-form mt-6" (submit)="$event.preventDefault(); saveRegion()">
 							<fieldset class="fit-fieldset">
@@ -140,14 +149,18 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 					}
 
 					@case ('lord') {
-						<h1 class="t-display" translate>Назвіть того, хто поведе ваше поселення.</h1>
+						<h1 class="t-display" translate>Ваш лорд</h1>
 
 						<form class="mt-8 max-w-[32rem]" (submit)="$event.preventDefault(); saveLord()" novalidate>
-							<label class="writer-label" for="lord-name" translate>Ім'я лорда</label>
+							<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: genderCategory }" />
+
+							<!-- Names come from the pool; typing one is only the fallback when the pool cannot load. -->
+							@if (!namePool()) {
+							<label class="sr-only" for="lord-name" translate>Ім'я лорда</label>
 							<input
 								class="writer-input"
 								id="lord-name"
-								[attr.aria-describedby]="nameError() ? 'lord-name-error' : 'lord-name-hint'"
+								[attr.aria-describedby]="nameError() ? 'lord-name-error' : null"
 								[attr.aria-invalid]="nameError() ? 'true' : null"
 								autocomplete="off"
 								[attr.maxlength]="nameMax"
@@ -162,12 +175,11 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								<p class="writer-error" id="lord-name-error" role="alert" translate>
 									Ім'я має містити від 2 до 40 символів.
 								</p>
-							} @else {
-								<p class="writer-hint" id="lord-name-hint" translate>Від 2 до 40 символів.</p>
+							}
 							}
 
 							@if (namePool()) {
-								<div class="mt-6 flex flex-wrap items-center gap-3">
+								<div class="flex flex-wrap items-center gap-3">
 									@if (nameParts(); as parts) {
 										<button
 											class="btn"
@@ -207,18 +219,47 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 									</button>
 								</div>
 								<p class="writer-hint mt-2" translate>
-									Закріпіть частину, яка подобається, і згенеруйте іншу. Або впишіть своє ім'я.
+									Закріпіть частину, яка подобається, і згенеруйте іншу.
 								</p>
 							}
 
-							<div class="mt-6 flex flex-wrap items-center gap-3 md:shrink-0">
+							@for (category of otherCategories; track category.id) {
+								<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: category }" />
+							}
+
+							<ng-template #lookCategory let-category>
+							<fieldset class="mt-6">
+								<legend class="writer-label" [translate]="category.name">{{ category.name }}</legend>
+								<div class="mt-2 flex flex-wrap gap-2">
+									@for (option of category.options; track option.id) {
+										<label
+											class="btn look-choice"
+											[class.look-choice--active]="chosen(category.id) === option.id"
+										>
+											<input
+												class="sr-only"
+												[checked]="chosen(category.id) === option.id"
+												(change)="setLook(category.id, option.id)"
+												[name]="'look-' + category.id"
+												type="radio"
+												[value]="option.id"
+											/>
+											@if (option.icon) {
+												<span class="material-symbols-outlined" aria-hidden="true">{{
+													option.icon
+												}}</span>
+											}
+											<span [translate]="option.name">{{ option.name }}</span>
+										</label>
+									}
+								</div>
+							</fieldset>
+							</ng-template>
+
+							<div class="mt-8 flex flex-wrap items-center gap-3 md:shrink-0">
 								<button class="btn btn--primary" [disabled]="saving()" type="submit">
 									<span class="material-symbols-outlined" aria-hidden="true">flag</span>
-									<span translate>Заснувати поселення</span>
-								</button>
-								<button class="btn" [disabled]="saving()" (click)="goTo('region')" type="button">
-									<span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-									<span translate>Назад</span>
+									<span translate>Лорд готовий</span>
 								</button>
 							</div>
 						</form>
@@ -277,6 +318,15 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 		.choice-card--selected {
 			border-color: var(--c-primary);
 			outline: 1px solid var(--c-primary);
+		}
+
+		.look-choice:has(input:focus-visible) {
+			box-shadow: var(--focus-ring);
+		}
+
+		.look-choice--active {
+			border-color: var(--c-primary);
+			background: var(--c-bg-tertiary);
 		}
 
 		.choice-card__icon {
@@ -340,6 +390,10 @@ export class OnboardingComponent {
 	protected readonly error = signal(false);
 	protected readonly nameMax = LORD_NAME_MAX;
 	protected readonly lordName = signal('');
+	/** Gender comes first because the generated names follow it. */
+	protected readonly genderCategory = LORD_CATEGORIES.find((c) => c.id === 'gender')!;
+	protected readonly otherCategories = LORD_CATEGORIES.filter((c) => c.id !== 'gender');
+	protected readonly look = signal<LordLook>(defaultLook());
 	/** Shown after a submit with an invalid name, cleared as the player types. */
 	protected readonly nameError = signal(false);
 	/** The shared name pool; null until loaded, or when it could not load (typing still works). */
@@ -426,6 +480,22 @@ export class OnboardingComponent {
 		this.error.set(false);
 	}
 
+	/** The option picked in a category; typed here because template category values are untyped. */
+	protected chosen(key: LordLookKey) {
+		return this.look()[key];
+	}
+
+	protected setLook(key: LordLookKey, id: string) {
+		const changed = this.look()[key] !== id;
+
+		this.look.update((look) => ({ ...look, [key]: id }));
+
+		// Names fit a gender, so a new one gets new names (locked parts that still fit stay).
+		if (key === 'gender' && changed) {
+			this.rerollName();
+		}
+	}
+
 	protected toggleLock(part: keyof NameParts) {
 		this.locked.update((locked) => ({ ...locked, [part]: !locked[part] }));
 	}
@@ -438,20 +508,25 @@ export class OnboardingComponent {
 			return;
 		}
 
+		const gender = this.look().gender;
 		const shown = this.nameParts();
 		const locked = this.locked();
+		const keeps = (part: keyof NameParts, list: string[]) =>
+			shown && locked[part] && list.includes(shown[part]) ? shown[part] : undefined;
 		const parts = generateName(
 			pool,
+			gender,
 			{
-				first: shown && locked.first ? shown.first : undefined,
-				second: shown && locked.second ? shown.second : undefined,
+				first: keeps('first', firstNamesFor(pool, gender)),
+				second: keeps('second', secondNamesFor(pool, gender)),
 			},
 			LORD_NAME_MAX,
 		);
 
-		if (!shown) {
-			this.locked.set({ first: false, second: false });
-		}
+		this.locked.update((l) => ({
+			first: !!shown && l.first && parts.first === shown.first,
+			second: !!shown && l.second && parts.second === shown.second,
+		}));
 
 		this._generated.set(parts);
 		this.setLordName(joinName(parts));
@@ -465,7 +540,7 @@ export class OnboardingComponent {
 			return;
 		}
 
-		await this._save((uid) => this._progress.setLordName(uid, name), 'village');
+		await this._save((uid) => this._progress.setLord(uid, name, this.look()), 'village');
 	}
 
 	protected async signOut() {
@@ -540,6 +615,7 @@ export class OnboardingComponent {
 		this.selectedElement.set(element ?? null);
 		this.selectedRegion.set(region ?? null);
 		this.lordName.set(progress?.lord?.name ?? '');
+		this.look.set(cleanLook(progress?.lord as Partial<LordLook> | undefined));
 		this.step.set(element ? (region ? 'lord' : 'region') : 'element');
 	}
 }

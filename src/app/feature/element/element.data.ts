@@ -6,15 +6,13 @@ export const ELEMENTS: LocationElement[] = [
 		name: 'Камінь',
 		description: 'Камінь тримає імена й тепло. Ваша перша локація постане в теплій горі.',
 		icon: 'landscape',
-		// TODO(image): src/assets/elements/stone.webp — see IMAGES-TODO.md
-		image: '',
+		image: 'elements/stone.webp',
 	},
 	{
 		id: 'fire',
 		name: 'Вогонь',
 		description: 'Вогонь відганяє темряву. Ваша перша локація постане довкола вогнища.',
 		icon: 'local_fire_department',
-		// TODO(image): src/assets/elements/fire.webp — see IMAGES-TODO.md
-		image: '',
+		image: 'elements/fire.webp',
 	},
 ];

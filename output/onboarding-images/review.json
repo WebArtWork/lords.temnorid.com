@@ -1,0 +1,266 @@
+{
+  "scope": "Isolated rendering of the actual onboarding card template and production CSS; no authenticated player state was changed.",
+  "methodology": "Native radio inputs use sr-only and are wrapped by full-card labels. Touch target measurement uses those real label rectangles rather than the clipped 1px radio inputs.",
+  "status": "completed",
+  "summary": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 3,
+    "total": 3
+  },
+  "findings": [
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-1440",
+      "severity": "moderate",
+      "message": "viewport-1440 uses 3 off-scale spacing values across 4 elements: 21.25px, 25.5px, 152.5px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@2",
+        "form:nth-of-type(1)@4",
+        "label:nth-of-type(1)@8",
+        "label:nth-of-type(2)@14"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@2 padding top",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding right",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding bottom",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding left",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 margin right",
+          "value": 152.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 margin left",
+          "value": 152.5,
+          "unit": "px"
+        },
+        {
+          "label": "form:nth-of-type(1)@4 margin top",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding left",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding left",
+          "value": 21.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-1"
+    },
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-390",
+      "severity": "moderate",
+      "message": "viewport-390 uses 3 off-scale spacing values across 4 elements: 21.25px, 25.5px, 38.25px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@2",
+        "form:nth-of-type(1)@4",
+        "label:nth-of-type(1)@8",
+        "label:nth-of-type(2)@14"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@2 padding top",
+          "value": 38.25,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding bottom",
+          "value": 38.25,
+          "unit": "px"
+        },
+        {
+          "label": "form:nth-of-type(1)@4 margin top",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding left",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding left",
+          "value": 21.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-2"
+    },
+    {
+      "ruleId": "spacing/off-scale-value",
+      "state": "viewport-1728",
+      "severity": "moderate",
+      "message": "viewport-1728 uses 3 off-scale spacing values across 4 elements: 21.25px, 25.5px, 296.5px.",
+      "fix": "Replace the measured values with the nearest project spacing token. Active scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128px.",
+      "elementIds": [
+        "section:nth-of-type(1)@2",
+        "form:nth-of-type(1)@4",
+        "label:nth-of-type(1)@8",
+        "label:nth-of-type(2)@14"
+      ],
+      "evidence": [
+        {
+          "label": "section:nth-of-type(1)@2 padding top",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding right",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding bottom",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 padding left",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 margin right",
+          "value": 296.5,
+          "unit": "px"
+        },
+        {
+          "label": "section:nth-of-type(1)@2 margin left",
+          "value": 296.5,
+          "unit": "px"
+        },
+        {
+          "label": "form:nth-of-type(1)@4 margin top",
+          "value": 25.5,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(1)@8 padding left",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding top",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding right",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding bottom",
+          "value": 21.25,
+          "unit": "px"
+        },
+        {
+          "label": "label:nth-of-type(2)@14 padding left",
+          "value": 21.25,
+          "unit": "px"
+        }
+      ],
+      "id": "spacing-3"
+    }
+  ]
+}

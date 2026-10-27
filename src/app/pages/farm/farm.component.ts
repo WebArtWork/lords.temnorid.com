@@ -48,7 +48,8 @@ export class FarmComponent {
 	private readonly _game = inject(GameService);
 	private readonly _router = inject(Router);
 
-	protected readonly state = signal<GameState | null>(null);
+	/** Follows the game, so work started on another page shows here without a reload. */
+	protected readonly state = computed<GameState | null>(() => this._game.game());
 	protected readonly error = signal(false);
 	protected readonly selected = signal<number | null>(null);
 	protected readonly now = nowSignal();
@@ -81,9 +82,7 @@ export class FarmComponent {
 		try {
 			const state = await this._game.load();
 
-			if (state) {
-				this.state.set(state);
-			} else {
+			if (!state) {
 				await this._router.navigateByUrl('/onboarding');
 			}
 		} catch (error) {

@@ -8,6 +8,6 @@ export interface LocationElement {
 	description: string;
 	/** Material Symbols icon shown while `image` is empty. */
 	icon: string;
-	/** Path under src/assets, e.g. `elements/stone.webp`. Empty until the art exists (see IMAGES-TODO.md). */
+	/** Public image path, e.g. `elements/stone.webp`; empty to use the icon fallback. */
 	image: string;
 }

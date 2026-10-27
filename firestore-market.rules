@@ -1,0 +1,62 @@
+// Proposed Firestore rules for the marketplace's player offers in Temnorid: Lords.
+//
+// NOT ACTIVE. The NPC exchange needs no rules (it only writes users/{uid}/progress/lords).
+// To turn player offers on:
+//   1. Paste the block below into temnorid.com/firestore.rules, inside
+//      `match /databases/{database}/documents { ... }`, next to the other lords rules.
+//      It uses the helpers signedIn() and isUser() already defined there.
+//   2. Deploy from temnorid.com:  firebase deploy --only firestore:rules
+//
+//   lordsOffers/{id}   one offer: { uid, lordName, give, giveAmount, want, wantAmount, status,
+//                      createdAt } and, once bought, { buyerUid, buyerName, filledAt }
+//
+// Life of an offer: the poster creates it `open` (the game takes the goods out of their stores in
+// the same batch). A buyer flips it to `filled` in a transaction that also saves their own stores,
+// so two buyers cannot take it. The poster then deletes it while collecting the payment, or deletes
+// an `open` one to cancel it and get the goods back. Nobody can edit the amounts.
+// The game checks the limit of open offers per marketplace level; rules cannot count documents.
+
+    function lordsResource(id) {
+      return id in ['wood', 'stone', 'iron', 'water', 'grain', 'clay'];
+    }
+
+    function lordsAmount(n) {
+      return n is int && n >= 1 && n <= 100000;
+    }
+
+    match /lordsOffers/{id} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && isUser(request.resource.data.uid)
+        && request.resource.data.keys().hasOnly(
+          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(
+          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt'])
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lordName is string
+        && request.resource.data.lordName.size() >= 1
+        && request.resource.data.lordName.size() <= 40
+        && lordsResource(request.resource.data.give)
+        && lordsResource(request.resource.data.want)
+        && request.resource.data.give != request.resource.data.want
+        && lordsAmount(request.resource.data.giveAmount)
+        && lordsAmount(request.resource.data.wantAmount);
+
+      // Buying: only open -> filled, by someone other than the poster, changing nothing else.
+      allow update: if signedIn()
+        && resource.data.status == 'open'
+        && resource.data.uid != request.auth.uid
+        && request.resource.data.status == 'filled'
+        && request.resource.data.buyerUid == request.auth.uid
+        && request.resource.data.buyerName is string
+        && request.resource.data.buyerName.size() >= 1
+        && request.resource.data.buyerName.size() <= 40
+        && request.resource.data.filledAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'buyerUid', 'buyerName', 'filledAt']);
+
+      // Cancelling an open offer, or clearing a bought one after collecting the payment.
+      allow delete: if signedIn() && isUser(resource.data.uid);
+    }

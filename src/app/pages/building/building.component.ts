@@ -15,11 +15,12 @@ import {
 } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { shortfall } from '../../feature/economy/economy';
+import { MarketComponent } from '../../feature/market/market.component';
 import { RESOURCES } from '../../feature/resource/resource.data';
 
 /** One building in the village: what it is, its level, and its construction or next upgrade. */
 @Component({
-	imports: [TranslateDirective],
+	imports: [MarketComponent, TranslateDirective],
 	template: `
 		<section class="w-full px-4 py-6 sm:px-6 sm:py-8">
 			@if (view(); as view) {
@@ -141,6 +142,9 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 						}
 					}
 				</section>
+				@if (view.type.id === 'marketplace' && view.level) {
+					<app-market class="mt-6 block lg:col-start-2" />
+				}
 				</div>
 			} @else if (missing()) {
 				<p class="text-[var(--c-text-muted)]" translate>

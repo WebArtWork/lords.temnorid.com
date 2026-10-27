@@ -1,0 +1,146 @@
+<!doctype html><html lang="en" data-mode="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Onboarding image preview</title><link rel="stylesheet" href="/styles.css"><link href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=Spectral:wght@400;600&family=Material+Symbols+Outlined&display=swap" rel="stylesheet"><style>
+		/* From tablets up the steps fit the window: the cards and the map take what the header and buttons leave. */
+		@media (min-width: 768px) {
+			.onboarding {
+				display: flex;
+				height: 100%;
+				flex-direction: column;
+				padding-block: 1.5rem;
+			}
+
+			.fit-form {
+				display: flex;
+				min-height: 0;
+				flex: 1;
+				flex-direction: column;
+			}
+
+			.fit-fieldset {
+				min-height: 0;
+				flex: 1;
+			}
+		}
+
+		.choice-card {
+			transition: border-color var(--motion-fast) var(--easing);
+
+			&:has(input:focus-visible) {
+				box-shadow: var(--focus-ring);
+			}
+
+			@media (hover: hover) and (pointer: fine) {
+				&:hover:not(.choice-card--selected) {
+					border-color: var(--c-text-muted);
+				}
+			}
+		}
+
+		.choice-card--selected {
+			border-color: var(--c-primary);
+			outline: 1px solid var(--c-primary);
+		}
+
+		.choice-card__icon {
+			font-size: 64px;
+		}
+
+		.choice-card__check {
+			color: var(--c-primary-text);
+			visibility: hidden;
+		}
+
+		.choice-card--selected .choice-card__check {
+			visibility: visible;
+		}
+
+		/* The map: the drawn overview of the land, or the world map image once it exists. */
+		.world-map {
+			border: 1px solid var(--c-border);
+			border-radius: var(--t-radius-card);
+			background-color: var(--c-bg-tertiary);
+			background-position: center;
+			background-size: cover;
+		}
+
+		.region-cell {
+			position: relative;
+			border: 1px solid var(--c-border);
+			border-radius: var(--t-radius);
+			background: color-mix(in srgb, var(--c-bg-secondary) 30%, transparent);
+			padding: 0.75rem;
+		}
+
+		/* The label sits on its own plate so it reads over the map. */
+		.region-cell .t-item,
+		.region-cell__icon {
+			border-radius: var(--t-radius);
+			background: color-mix(in srgb, var(--c-bg-secondary) 88%, transparent);
+			padding: 0 0.5rem;
+		}
+
+		.region-cell__icon {
+			color: var(--c-primary-text);
+			font-size: 40px;
+		}
+	</style></head><body><main style="height:calc(100dvh - 9rem);margin-top:4.5rem"><section class="onboarding mx-auto max-w-[var(--container)] px-4 sm:px-6 t-page"><h1 class="t-display">Choose the element it will be founded on.</h1><form class="fit-form mt-6"><fieldset class="fit-fieldset"><legend class="sr-only">Element of the first location</legend><div class="grid gap-4 sm:grid-cols-2 md:h-full"><label
+											class="choice-card t-card flex min-h-0 cursor-pointer flex-col gap-4"
+										>
+											<input
+												class="sr-only"
+												name="element"
+												type="radio"
+												value="stone"
+											/>
+											
+												<img
+													class="aspect-[3/2] w-full rounded-[var(--t-radius)] object-cover md:aspect-auto md:min-h-0 md:flex-1"
+													src="/elements/stone.webp"
+													alt=""
+													width="1200"
+													height="800"
+												/>
+											
+											<span class="flex items-center justify-between gap-3">
+												<span class="t-item">Stone</span>
+												<span
+													class="material-symbols-outlined choice-card__check"
+													aria-hidden="true"
+												>
+													check_circle
+												</span>
+											</span>
+											<span class="leading-7">
+												Stone keeps names and warmth. Your first location will rise inside a warm mountain.
+											</span>
+										</label>
+<label
+											class="choice-card t-card flex min-h-0 cursor-pointer flex-col gap-4"
+										>
+											<input
+												class="sr-only"
+												name="element"
+												type="radio"
+												value="fire"
+											/>
+											
+												<img
+													class="aspect-[3/2] w-full rounded-[var(--t-radius)] object-cover md:aspect-auto md:min-h-0 md:flex-1"
+													src="/elements/fire.webp"
+													alt=""
+													width="1200"
+													height="800"
+												/>
+											
+											<span class="flex items-center justify-between gap-3">
+												<span class="t-item">Fire</span>
+												<span
+													class="material-symbols-outlined choice-card__check"
+													aria-hidden="true"
+												>
+													check_circle
+												</span>
+											</span>
+											<span class="leading-7">
+												Fire holds back the dark. Your first location will rise around a great fire.
+											</span>
+										</label></div></fieldset></form><div class="mt-2 min-h-7 md:shrink-0"></div></section></main></body></html>

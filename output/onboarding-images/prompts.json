@@ -1,0 +1,19 @@
+{
+  "tool": "Built-in ImageGen",
+  "assets": [
+    {
+      "path": "src/assets/elements/stone.webp",
+      "prompt": "Use case: photorealistic-natural. Asset: Stone element selection photo for the dark medieval fantasy browser game Temnorid: Lords. A beautiful cinematic photorealistic landscape photograph of a sheltered settlement carved into the foot of a monumental weathered grey limestone mountain: broad ancient stone archway leading to a warm amber-lit refuge, a few humble stone dwellings and moss-covered steps nested in rock. The mountain is the dominant subject and feels protective and enduring. Misty blue-grey dusk sky, muted woodland, naturally textured rock, warm firelight spilling out of the doorway, realistic atmospheric depth and photographic details, grounded medieval architecture. Landscape 3:2, intended delivery 1200x800, focal subject centered and readable when cropped to a near-square card, important objects comfortably within the middle 70%. Match an elegant charcoal, parchment and ember-gold website. No people, no text, no logos, no border, no UI, no modern objects, no illustration or cartoon style. Opaque background."
+    },
+    {
+      "path": "src/assets/elements/fire.webp",
+      "prompt": "Use case: photorealistic-natural. Asset: Fire element selection photo for the dark medieval fantasy browser game Temnorid: Lords. A beautiful cinematic photorealistic photograph of a great communal wood fire burning in a broad circular rough-stone hearth in the heart of a modest medieval woodland settlement. A vivid sculptural amber-orange flame is the unmistakable central subject, realistic glowing logs and embers; humble timber-and-stone cottages and protective dark pine forest behind, subtle smoke lifting into misty blue-grey dusk, a few warm windows, safe welcoming hearth rather than a destructive wildfire. Rich natural textures, realistic atmospheric depth and photographic details, grounded medieval architecture. Landscape 3:2, intended delivery 1200x800, fire and hearth centered and readable when cropped to a near-square card, important objects comfortably within the middle 70%. Match the companion Stone image and an elegant charcoal, parchment and ember-gold website. No people, no text, no logos, no border, no UI, no modern objects, no illustration or cartoon style. Opaque background."
+    }
+  ],
+  "output": {
+    "width": 1200,
+    "height": 800,
+    "format": "WebP",
+    "quality": 86
+  }
+}

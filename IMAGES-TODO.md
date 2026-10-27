@@ -13,14 +13,17 @@ an image above its name and description.
 
 | Done | Image | Save to | Fill in | Size |
 | ---- | ----- | ------- | ------- | ---- |
-| [ ] | Stone: a warm mountain slope with the first carved stones of a settlement, dark sky | `src/assets/elements/stone.webp` | `image` of `stone` in `src/app/feature/element/element.data.ts` | 1200×800 (3:2), WebP |
-| [ ] | Fire: a settlement gathered around a large fire holding back the dark | `src/assets/elements/fire.webp` | `image` of `fire` in `src/app/feature/element/element.data.ts` | 1200×800 (3:2), WebP |
+| [x] | Stone: a mountain refuge with a warm-lit stone archway at dusk | `src/assets/elements/stone.webp` | `image` of `stone` in `src/app/feature/element/element.data.ts` | 1200×800 (3:2), WebP |
+| [x] | Fire: a communal stone hearth in a medieval woodland settlement | `src/assets/elements/fire.webp` | `image` of `fire` in `src/app/feature/element/element.data.ts` | 1200×800 (3:2), WebP |
 
 To fill one: save the file, then set the `image` value, e.g. `image: 'elements/stone.webp'`, and
 delete the `TODO(image)` comment above it. The card switches from the icon to the image on its own.
 
 Keep both images the same size and in a similar style and lighting, since they sit side by side.
 They should read well on both the light (parchment) and dark (night) themes.
+
+The Stone and Fire images were generated with the built-in ImageGen tool in a photorealistic
+style. Their prompts are saved in `output/onboarding-images/prompts.json`.
 
 ## Onboarding: place on the map
 
