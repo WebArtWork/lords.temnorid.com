@@ -151,9 +151,16 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 					@case ('lord') {
 						<h1 class="t-display" translate>Ваш лорд</h1>
 
-						<form class="mt-8 max-w-[32rem]" (submit)="$event.preventDefault(); saveLord()" novalidate>
+						<form
+							class="mt-4 max-w-[32rem] md:max-w-[64rem] md:grid md:grid-cols-2 md:items-start md:gap-x-12"
+							(submit)="$event.preventDefault(); saveLord()"
+							novalidate
+						>
+							<div>
 							<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: genderCategory }" />
 
+							<h2 class="writer-label mt-5" translate>Ім'я лорда</h2>
+							<div class="mt-2">
 							<!-- Names come from the pool; typing one is only the fallback when the pool cannot load. -->
 							@if (!namePool()) {
 							<label class="sr-only" for="lord-name" translate>Ім'я лорда</label>
@@ -223,12 +230,16 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 								</p>
 							}
 
+							</div>
+							</div>
+							<div>
 							@for (category of otherCategories; track category.id) {
 								<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: category }" />
 							}
+							</div>
 
 							<ng-template #lookCategory let-category>
-							<fieldset class="mt-6">
+							<fieldset class="mt-5 first:mt-0">
 								<legend class="writer-label" [translate]="category.name">{{ category.name }}</legend>
 								<div class="mt-2 flex flex-wrap gap-2">
 									@for (option of category.options; track option.id) {
@@ -256,7 +267,7 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 							</fieldset>
 							</ng-template>
 
-							<div class="mt-8 flex flex-wrap items-center gap-3 md:shrink-0">
+							<div class="mt-6 flex flex-wrap items-center gap-3 md:col-span-2 md:shrink-0">
 								<button class="btn btn--primary" [disabled]="saving()" type="submit">
 									<span class="material-symbols-outlined" aria-hidden="true">flag</span>
 									<span translate>Лорд готовий</span>
