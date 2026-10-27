@@ -13,6 +13,14 @@ export const routes: Routes = [
 			},
 		},
 		loadComponent: () =>
+			import('./pages/landing/landing.component').then((m) => m.LandingComponent),
+	},
+	{
+		path: 'sign',
+		data: {
+			meta: buildRouteMeta(companyProfile, '/sign'),
+		},
+		loadComponent: () =>
 			import('./pages/sign-in/sign-in.component').then((m) => m.SignInComponent),
 	},
 	{

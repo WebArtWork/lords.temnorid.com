@@ -7,6 +7,10 @@ export const serverRoutes: ServerRoute[] = [
 		renderMode: RenderMode.Client,
 	},
 	{
+		path: 'sign',
+		renderMode: RenderMode.Client,
+	},
+	{
 		path: 'village',
 		renderMode: RenderMode.Client,
 	},

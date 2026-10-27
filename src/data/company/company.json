@@ -31,6 +31,12 @@
 			"image": "/seo/home.jpg",
 			"titleSuffix": ""
 		},
+		"/sign": {
+			"title": "Вхід у гру",
+			"description": "Увійдіть через Google або грайте як гість у Темнорід: Лорди.",
+			"image": "/seo/sign.jpg",
+			"robots": "noindex, nofollow"
+		},
 		"/onboarding": {
 			"title": "Створення лорда",
 			"description": "Оберіть стихію Каменю або Вогню, регіон першого поселення та ім’я свого лорда у грі Темнорід: Лорди.",

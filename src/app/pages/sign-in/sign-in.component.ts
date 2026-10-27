@@ -5,19 +5,17 @@ import { FirebaseService } from '../../feature/firebase/firebase.service';
 
 type SignInMethod = 'google' | 'guest';
 
+/** Where Play leads once someone is signed in. The world sends new lords on to onboarding. */
+const AFTER_SIGN_IN = '/world';
+
 @Component({
 	imports: [TranslateDirective],
 	template: `
 		<section class="mx-auto flex max-w-[var(--container)] justify-center px-4 sm:px-6 t-page">
 			<div class="w-full max-w-[30rem] t-card">
-				<p class="t-numeral text-lg" translate>Темнорід</p>
-				<h1 class="mt-1 t-display" translate>Лорди</h1>
+				<h1 class="t-display" translate>Вхід у гру</h1>
 				<p class="mt-4 t-lead" translate>
-					Здобудь землі, збудуй свій дім і правь у світі Темнороду.
-				</p>
-				<p class="mt-4 leading-7 text-[var(--c-text-muted)]" translate>
-					Браузерна фентезі-стратегія. Оберіть Камінь або Вогонь і заснуйте поселення. Гра
-					в розробці.
+					Увійдіть, щоб заснувати поселення й повернутися до нього з будь-якого пристрою.
 				</p>
 
 				@if (authReady()) {
@@ -68,10 +66,10 @@ export class SignInComponent {
 	protected readonly error = signal(false);
 
 	constructor() {
-		// Signed in, now or from a saved session: continue to onboarding.
+		// Signed in, now or from a saved session: continue into the game.
 		effect(() => {
 			if (this._firebase.user()) {
-				void this._router.navigateByUrl('/onboarding');
+				void this._router.navigateByUrl(AFTER_SIGN_IN);
 			}
 		});
 	}

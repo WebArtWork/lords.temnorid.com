@@ -2,13 +2,12 @@
 	<div
 		class="flex min-h-16 w-full flex-nowrap items-center md:flex-wrap justify-between gap-x-2 gap-y-2 sm:gap-x-6 overflow-visible px-3 py-3 sm:px-6 lg:px-8"
 	>
-		<!-- Signed in, the wordmark opens the world; signed out, the sign-in page. -->
+		<!-- The wordmark opens the world. -->
 		<!-- On phones a signed-in player finds the wordmark's world link in the bottom bar. -->
 		<a
-			[translate]="{ ariaLabel: user() ? 'Відкрити світ' : 'Перейти на головну сторінку' }"
-			class="theme-focus t-wordmark rounded-md text-xl sm:text-2xl"
-			[class]="user() ? 'hidden md:inline' : ''"
-			[routerLink]="user() ? '/world' : '/'"
+			[translate]="{ ariaLabel: 'Відкрити світ' }"
+			class="theme-focus t-wordmark hidden rounded-md text-xl sm:text-2xl md:inline"
+			routerLink="/world"
 		>
 			<span translate>Лорди</span>
 		</a>
@@ -117,73 +116,6 @@
 					[size]="48"
 				/>
 			</a>
-		} @else {
-			<div class="flex items-center gap-2">
-				<div
-					class="relative flex items-center gap-1 rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-sm)]"
-				>
-					<button
-						class="theme-interactive theme-focus inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
-						[attr.aria-label]="languageCycleLabel()"
-						(click)="nextLanguage()"
-						type="button"
-					>
-						<img
-							class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
-							[alt]="currentLanguage().nativeName"
-							[ngSrc]="currentLanguage().flagSrc"
-							width="28"
-							height="20"
-						/>
-					</button>
-
-					<button
-						class="theme-interactive theme-focus inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
-						[attr.aria-expanded]="languageMenuOpen()"
-						[attr.aria-label]="languageMenuLabel()"
-						(click)="toggleLanguageMenu()"
-						type="button"
-					>
-						<span class="material-symbols-outlined text-[20px]" aria-hidden="true">
-							arrow_drop_down
-						</span>
-					</button>
-
-					@if (languageMenuOpen()) {
-						<div
-							class="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-48 overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-bg-primary)] p-1 shadow-[var(--shadow-md)]"
-						>
-							@for (language of languages(); track language.code) {
-								<button
-									class="theme-interactive theme-focus flex w-full items-center gap-3 rounded-[calc(var(--radius-btn)-0.25rem)] px-3 py-2 text-left text-sm text-[var(--c-text)] hover:bg-[var(--c-bg-tertiary)]"
-									(click)="setLanguage(language)"
-									type="button"
-								>
-									<img
-										class="h-5 w-7 rounded-[4px] border border-black/10 object-cover"
-										[alt]="language.nativeName"
-										[ngSrc]="language.flagSrc"
-										width="28"
-										height="20"
-									/>
-									<span>{{ language.nativeName }}</span>
-								</button>
-							}
-						</div>
-					}
-				</div>
-
-				<button
-					class="theme-interactive theme-focus inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--c-border)] bg-[var(--c-bg-primary)] text-[var(--c-text-strong)] hover:bg-[var(--c-bg-tertiary)]"
-					[attr.aria-label]="toggleLabel()"
-					(click)="toggleMode()"
-					type="button"
-				>
-					<span class="material-symbols-outlined text-[22px]" aria-hidden="true">
-						{{ toggleIcon() }}
-					</span>
-				</button>
-			</div>
 		}
 	</div>
 </header>

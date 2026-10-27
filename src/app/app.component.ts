@@ -11,11 +11,19 @@ import { FooterComponent } from './layouts/footer/footer.component';
 import { SessionService } from './feature/session/session.service';
 import { BottomBarComponent } from './layouts/bottom-bar/bottom-bar.component';
 import { SplashComponent } from './layouts/splash/splash.component';
+import { PublicTopbarComponent } from './layouts/public-topbar/public-topbar.component';
 import { TopbarComponent } from './layouts/topbar/topbar.component';
 
 @Component({
 	selector: 'app-root',
-	imports: [BottomBarComponent, FooterComponent, RouterOutlet, SplashComponent, TopbarComponent],
+	imports: [
+		BottomBarComponent,
+		FooterComponent,
+		PublicTopbarComponent,
+		RouterOutlet,
+		SplashComponent,
+		TopbarComponent,
+	],
 	template: `
 		<!--
 			Pinned to the screen, so the browser itself never scrolls: on phones 100vh is taller
@@ -23,7 +31,11 @@ import { TopbarComponent } from './layouts/topbar/topbar.component';
 			scrolls (or, on play screens, fits).
 		-->
 		<div class="fixed inset-0 flex flex-col">
-			<app-topbar class="shrink-0" />
+			@if (user()) {
+				<app-topbar class="shrink-0" />
+			} @else {
+				<app-public-topbar class="shrink-0" />
+			}
 			<main
 				#content
 				class="min-h-0 flex-1"
@@ -49,7 +61,9 @@ export class App {
 	private readonly _document = inject(DOCUMENT);
 	private readonly _languageService = inject(LanguageService);
 	private readonly _router = inject(Router);
-	protected readonly ready = inject(SessionService).ready;
+	private readonly _session = inject(SessionService);
+	protected readonly ready = this._session.ready;
+	protected readonly user = this._session.user;
 	private readonly _url = toSignal(
 		this._router.events.pipe(
 			filter((event) => event instanceof NavigationEnd),

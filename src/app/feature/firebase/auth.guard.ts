@@ -15,5 +15,5 @@ export const authGuard: CanActivateFn = async () => {
 	const { FirebaseService } = await import('./firebase.service');
 	const user = await injector.get(FirebaseService).whenReady();
 
-	return user ? true : router.parseUrl('/');
+	return user ? true : router.parseUrl('/sign');
 };
