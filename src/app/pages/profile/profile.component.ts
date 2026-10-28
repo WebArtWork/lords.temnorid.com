@@ -35,18 +35,24 @@ import { WorldService } from '../../feature/world/world.service';
 				<div class="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
 				<aside class="grid gap-6 lg:sticky lg:top-6">
 				<div class="flex flex-wrap items-center gap-5">
-					<app-avatar [photoUrl]="user.photoURL" [name]="user.displayName" [size]="96" />
+					<app-avatar [size]="96" />
 					<div class="min-w-0">
 						<h1 class="t-display">
 							@if (user.isAnonymous) {
 								<span translate>Гість</span>
+							} @else if (game(); as game) {
+								{{ game.lordName }}
 							} @else {
-								{{ user.displayName || user.email }}
+								<span translate>Лорд</span>
 							}
 						</h1>
-						@if (!user.isAnonymous && user.displayName && user.email) {
-							<p class="mt-2 break-all text-[var(--c-text-muted)]">
-								{{ user.email }}
+						@if (!user.isAnonymous && user.email) {
+							<p class="mt-2 flex items-center gap-2 text-[var(--c-text-muted)]">
+								<span class="break-all">{{ user.email }}</span>
+								<button class="btn shrink-0 !px-2" (click)="signOut()" type="button">
+									<span class="material-symbols-outlined" aria-hidden="true">logout</span>
+									<span class="sr-only" translate>Вийти</span>
+								</button>
 							</p>
 						}
 					</div>

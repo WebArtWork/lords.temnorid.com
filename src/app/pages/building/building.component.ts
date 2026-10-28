@@ -45,10 +45,8 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 				<p class="mt-6 leading-8" [translate]="view.type.description">
 					{{ view.type.description }}
 				</p>
-				</aside>
-
 				<section
-					class="t-card max-w-[36rem]"
+					class="t-card mt-6"
 					aria-labelledby="building-work"
 					aria-live="polite"
 				>
@@ -142,8 +140,10 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 						}
 					}
 				</section>
+				</aside>
+
 				@if (view.type.id === 'marketplace' && view.level) {
-					<app-market class="mt-6 block lg:col-start-2" />
+					<app-market class="block" />
 				}
 				</div>
 			} @else if (missing()) {

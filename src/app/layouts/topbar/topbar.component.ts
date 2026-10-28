@@ -24,10 +24,8 @@ export class TopbarComponent {
 	private readonly _session = inject(SessionService);
 
 	protected readonly user = this._session.user;
-	/** The lord's name, or the player's own name until they have chosen a lord. */
-	protected readonly playerName = computed(
-		() => this._session.game()?.lordName ?? this.user()?.displayName ?? '',
-	);
+	/** The lord's name; the player's real name is never shown. */
+	protected readonly playerName = computed(() => this._session.game()?.lordName ?? '');
 	private readonly _now = nowSignal();
 	/** The lord's stores, as icon and amount, growing with the farm's production. */
 	protected readonly resources = computed(() => {

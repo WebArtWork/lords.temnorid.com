@@ -6,6 +6,7 @@ import { ELEMENTS } from '../../feature/element/element.data';
 import { ElementId } from '../../feature/element/element.interface';
 import { FirebaseService } from '../../feature/firebase/firebase.service';
 import {
+	categoryApplies,
 	cleanLook,
 	defaultLook,
 	LORD_CATEGORIES,
@@ -231,10 +232,16 @@ type OnboardingStep = 'element' | 'region' | 'lord';
 							}
 
 							</div>
+							<div class="mt-5">
+								<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: classCategory }" />
 							</div>
-							<div>
+							</div>
+							<div class="mt-5 md:mt-0">
 							@for (category of otherCategories; track category.id) {
 								<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: category }" />
+							}
+							@if (beardOffered()) {
+								<ng-container *ngTemplateOutlet="lookCategory; context: { $implicit: beardCategory }" />
 							}
 							</div>
 
@@ -403,7 +410,14 @@ export class OnboardingComponent {
 	protected readonly lordName = signal('');
 	/** Gender comes first because the generated names follow it. */
 	protected readonly genderCategory = LORD_CATEGORIES.find((c) => c.id === 'gender')!;
-	protected readonly otherCategories = LORD_CATEGORIES.filter((c) => c.id !== 'gender');
+	protected readonly beardCategory = LORD_CATEGORIES.find((c) => c.id === 'beard')!;
+	protected readonly classCategory = LORD_CATEGORIES.find((c) => c.id === 'class')!;
+	/** The face details in the right column, before the beard. */
+	protected readonly otherCategories = LORD_CATEGORIES.filter(
+		(c) => c.id !== 'gender' && c.id !== 'beard' && c.id !== 'class',
+	);
+	/** A beard is only for men; it follows the other face details. */
+	protected readonly beardOffered = computed(() => categoryApplies(this.beardCategory, this.look()));
 	protected readonly look = signal<LordLook>(defaultLook());
 	/** Shown after a submit with an invalid name, cleared as the player types. */
 	protected readonly nameError = signal(false);
@@ -551,7 +565,7 @@ export class OnboardingComponent {
 			return;
 		}
 
-		await this._save((uid) => this._progress.setLord(uid, name, this.look()), 'village');
+		await this._save((uid) => this._progress.setLord(uid, name, cleanLook(this.look())), 'village');
 	}
 
 	protected async signOut() {
