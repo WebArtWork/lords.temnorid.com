@@ -52,10 +52,9 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 					<span class="font-semibold tabular-nums">{{ view.perHour }}</span>
 					<span translate>за годину</span>
 				</p>
-				</aside>
 
 				<section
-					class="t-card max-w-[36rem]"
+					class="t-card mt-6"
 					aria-labelledby="plot-work"
 					aria-live="polite"
 				>
@@ -152,6 +151,7 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 						}
 					}
 				</section>
+				</aside>
 				</div>
 			} @else if (missing()) {
 				<p class="text-[var(--c-text-muted)]" translate>
