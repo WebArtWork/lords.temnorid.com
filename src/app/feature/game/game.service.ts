@@ -42,9 +42,12 @@ import {
 	TradeError,
 	marketLevel,
 	npcReceive,
+	nearestCity,
 	Offer,
 	OFFER_MAX_AMOUNT,
-	swap,
+	Shipment,
+	ship,
+	travelSeconds,
 } from '../market/market';
 import { MarketService } from '../market/market.service';
 import { ResourceId } from '../resource/resource.interface';
@@ -65,6 +68,8 @@ export interface GameState {
 	stock: StockSave;
 	hero: HeroSave;
 	faction: FactionId | null;
+	/** Goods on the road to the stores; they are credited when they arrive. */
+	shipments: Shipment[];
 }
 
 /**
@@ -80,6 +85,7 @@ export class GameService {
 	private _cache: GameState | null = null;
 	/** The load in flight, shared so the top bar and a page never found the maps twice. */
 	private _loading: Promise<GameState | null> | null = null;
+	private _shipmentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	/** The last loaded game, for chrome such as the top bar that only shows it. */
 	readonly game = signal<GameState | null>(null);
@@ -149,9 +155,10 @@ export class GameService {
 			stock,
 			hero,
 			faction: progress.faction ?? null,
+				shipments: progress.shipments ?? [],
 		};
 
-		this.game.set(this._cache);
+		this._update(this._cache);
 
 		return this._cache;
 	}
@@ -292,6 +299,55 @@ export class GameService {
 	private _update(game: GameState) {
 		this._cache = game;
 		this.game.set(game);
+		this._watchShipments();
+	}
+
+	/** Credits whatever shipments have arrived, and wakes up again for the next one. */
+	private _watchShipments() {
+		clearTimeout(this._shipmentTimer);
+
+		const game = this._cache;
+
+		if (!game?.shipments.length || typeof window === 'undefined') {
+			return;
+		}
+
+		const next = Math.min(...game.shipments.map((shipment) => shipment.arriveAt));
+
+		this._shipmentTimer = setTimeout(
+			() => this.receiveShipments().catch((error) => console.error(error)),
+			Math.max(0, next - Date.now()) + 50,
+		);
+	}
+
+	/** Puts the shipments that have arrived into the stores, even past their capacity. */
+	async receiveShipments(): Promise<void> {
+		const game = this._cache;
+		const now = Date.now();
+		const arrived = game?.shipments.filter((shipment) => shipment.arriveAt <= now) ?? [];
+
+		if (!game || !arrived.length) {
+			this._watchShipments();
+
+			return;
+		}
+
+		const available = this.stockNow(game, now);
+
+		for (const shipment of arrived) {
+			available[shipment.resource] += shipment.amount;
+		}
+
+		const stock: StockSave = { amounts: available, at: now };
+		const shipments = game.shipments.filter((shipment) => shipment.arriveAt > now);
+
+		await this._progress.setShipments(game.uid, stock, shipments);
+		this._update({ ...this._requireGame(), stock, shipments });
+	}
+
+	/** The village's tile on the world map; Kamianets stands in until the farm has learned it. */
+	villageAt(game: GameState): Point {
+		return game.farm.at ?? { x: 0, y: 0 };
 	}
 
 	/** Sends the hero into a dungeon. The loot is rolled now and collected on return. */
@@ -355,7 +411,10 @@ export class GameService {
 		this._update({ ...game, hero, stock });
 	}
 
-	/** Swaps goods with the NPC merchants at once, at the rate the marketplace level earns. */
+	/**
+	 * Sells goods to the NPC merchants of the nearest town, at the rate the marketplace level
+	 * earns. The goods leave now; what they fetch arrives once the merchants are back.
+	 */
 	async exchange(give: ResourceId, giveAmount: number, want: ResourceId): Promise<void> {
 		const game = this._requireGame();
 		const now = Date.now();
@@ -368,10 +427,23 @@ export class GameService {
 			throw new TradeError(reason);
 		}
 
-		const stock: StockSave = { amounts: swap(available, give, giveAmount, want, receive), at: now };
+		const city = nearestCity(this.villageAt(game));
+		const seconds = travelSeconds(this.villageAt(game), city);
+		const stock: StockSave = { amounts: ship(available, give, giveAmount), at: now };
+		const shipments: Shipment[] = [
+			...game.shipments,
+			{
+				id: crypto.randomUUID(),
+				kind: 'npc',
+				source: city.name,
+				resource: want,
+				amount: receive,
+				arriveAt: now + seconds * 1000,
+			},
+		];
 
-		await this._progress.setStock(game.uid, stock);
-		this._update({ ...game, stock });
+		await this._progress.setShipments(game.uid, stock, shipments);
+		this._update({ ...game, stock, shipments });
 	}
 
 	/** Lists an offer on the board; the goods leave the stores until it is bought or cancelled. */
@@ -399,7 +471,15 @@ export class GameService {
 		};
 
 		await this._market.post(
-			{ uid: game.uid, lordName: game.lordName, give, giveAmount, want, wantAmount },
+			{
+				uid: game.uid,
+				lordName: game.lordName,
+				give,
+				giveAmount,
+				want,
+				wantAmount,
+				at: this.villageAt(game),
+			},
 			stock,
 		);
 		this._update({ ...game, stock });
@@ -421,7 +501,9 @@ export class GameService {
 		const now = Date.now();
 		let stock = null as StockSave | null;
 
-		await this._market.accept(game.uid, game.lordName, offer.id, (listed) => {
+		let shipments = game.shipments;
+
+		await this._market.accept(game.uid, game.lordName, this.villageAt(game), offer.id, (listed, seconds) => {
 			const available = this.stockNow(game, now);
 			const reason = cannotTrade(
 				available,
@@ -437,16 +519,24 @@ export class GameService {
 				throw new TradeError(reason);
 			}
 
-			stock = {
-				amounts: swap(available, listed.want, listed.wantAmount, listed.give, listed.giveAmount),
-				at: now,
-			};
+			stock = { amounts: ship(available, listed.want, listed.wantAmount), at: now };
+			shipments = [
+				...game.shipments,
+				{
+					id: crypto.randomUUID(),
+					kind: 'lord',
+					source: listed.lordName,
+					resource: listed.give,
+					amount: listed.giveAmount,
+					arriveAt: now + seconds * 1000,
+				},
+			];
 
-			return stock;
+			return { stock, shipments };
 		});
 
 		if (stock) {
-			this._update({ ...game, stock });
+			this._update({ ...game, stock, shipments });
 		}
 	}
 
@@ -494,6 +584,7 @@ export class GameService {
 	}
 
 	async signOut() {
+		clearTimeout(this._shipmentTimer);
 		this._cache = null;
 		this._loading = null;
 		this.game.set(null);
