@@ -1,5 +1,5 @@
 import { inject, Service } from '@angular/core';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { ElementId } from '../element/element.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { RegionId } from '../region/region.interface';
@@ -106,6 +106,18 @@ export class ProgressService {
 			{ stock, village: { buildings: { [slot]: building } }, updatedAt: serverTimestamp() },
 			{ merge: true },
 		);
+	}
+
+	/**
+	 * Starts taking a building down and saves the stores the refund went into. The place is replaced
+	 * whole, so nothing of an earlier finished upgrade is left on it.
+	 */
+	async setDemolished(uid: string, slot: number, building: VillageBuilding, stock: StockSave) {
+		await updateDoc(this._ref(uid), {
+			stock,
+			[`village.buildings.${slot}`]: building,
+			updatedAt: serverTimestamp(),
+		});
 	}
 
 	/** Saves a farm plot's level work and the stores it was paid from. */

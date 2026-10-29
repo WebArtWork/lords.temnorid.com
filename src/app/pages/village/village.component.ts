@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
 import { BuildingId, CENTER_PLACE } from '../../feature/building/building.interface';
-import { nowSignal } from '../../feature/building/building.timing';
+import { nowSignal, standing } from '../../feature/building/building.timing';
 import { farmSurroundings } from '../../feature/farm/farm.generator';
 import { farmLand } from '../../feature/farm/farm.land';
 import { GameService, GameState } from '../../feature/game/game.service';
@@ -92,7 +92,7 @@ export class VillageComponent {
 	}
 
 	private _openSlot(slot: number) {
-		const buildings = this.state()?.village.buildings ?? {};
+		const buildings = standing(this.state()?.village.buildings ?? {}, Date.now());
 
 		if (buildings[slot]) {
 			void this._router.navigate(['/building', slot]);

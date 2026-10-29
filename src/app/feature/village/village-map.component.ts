@@ -2,7 +2,7 @@ import { Component, computed, DestroyRef, ElementRef, inject, input, model, sign
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { CENTER_PLACE, VillageBuilding } from '../building/building.interface';
-import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
+import { formatDuration, levelAt, runningUpgrade, standing } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
 import {
 	growth,
@@ -118,7 +118,7 @@ import { VillageMap } from './village.interface';
 				(keydown.space)="$event.preventDefault(); toggle(center)"
 			>
 				<ellipse class="village-slot__ring" cx="0" cy="0" rx="58" ry="36" />
-				@if (buildings()[center]; as arena) {
+				@if (present()[center]; as arena) {
 					@let level = levelOf(arena);
 					<ellipse cx="0" cy="10" rx="54" ry="22" fill="rgb(0 0 0 / 0.22)" />
 					@if (level) {
@@ -203,7 +203,7 @@ import { VillageMap } from './village.interface';
 					<ellipse class="village-slot__ring" cx="0" cy="0" rx="46" ry="30" />
 					<!-- Ground under the plot hides the road that leads into it. -->
 					<ellipse cx="0" cy="0" rx="40" ry="25" [attr.fill]="palette().ground" />
-					@if (buildings()[slot.id]; as building) {
+					@if (present()[slot.id]; as building) {
 						@let level = levelOf(building);
 						<ellipse cx="0" cy="14" rx="40" ry="11" fill="rgb(0 0 0 / 0.22)" />
 						@if (level) {
@@ -378,6 +378,8 @@ export class VillageMapComponent {
 	readonly selected = model<number | null>(null);
 	/** What stands on each place, by place id. */
 	readonly buildings = input<Record<string, VillageBuilding>>({});
+	/** What still stands: a building torn down completely is gone once its work is over. */
+	protected readonly present = computed(() => standing(this.buildings(), this.now()));
 	/** The clock, in epoch milliseconds, so construction shows its progress. */
 	readonly now = input(0);
 	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
@@ -474,7 +476,7 @@ export class VillageMapComponent {
 
 	protected slotLabel(id: number): string {
 		this._languageService.language();
-		const building = this.buildings()[id];
+		const building = this.present()[id];
 		const type = building && BUILDING_BY_ID[building.type];
 
 		return type

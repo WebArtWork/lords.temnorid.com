@@ -38,6 +38,21 @@ export function runningUpgrade(building: Construction, now: number) {
 	return building.upgrade && building.upgrade.endsAt > now ? building.upgrade : null;
 }
 
+/** A building whose dismantling is over and nothing is left of it. */
+export function isGone(building: Construction, now: number): boolean {
+	const work = building.upgrade;
+
+	return !!work?.down && work.level === 0 && work.endsAt <= now;
+}
+
+/** The buildings that still stand at `now`: those torn down completely are left out. */
+export function standing(
+	buildings: Record<string, VillageBuilding>,
+	now: number,
+): Record<string, VillageBuilding> {
+	return Object.fromEntries(Object.entries(buildings).filter(([, b]) => !isGone(b, now)));
+}
+
 /** The lord's hall level by `now`, 0 when there is none. */
 export function hallLevel(buildings: Record<string, VillageBuilding>, now: number): number {
 	return buildingLevel(buildings, 'lords-hall', now);

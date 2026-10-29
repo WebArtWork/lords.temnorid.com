@@ -11,6 +11,7 @@ import {
 	hallLevel,
 	levelAt,
 	nowSignal,
+	standing,
 } from '../building/building.timing';
 import { shortfall, stockAt } from '../economy/economy';
 import { GameState } from '../game/game.service';
@@ -191,7 +192,7 @@ export class VillageSlotModalComponent {
 		this._languageService.language();
 		const t = (text: string) => this._translateService.translate(text)();
 		const now = this._now();
-		const buildings = this.game.village.buildings ?? {};
+		const buildings = standing(this.game.village.buildings ?? {}, now);
 		const plots = this.game.farm.levels ?? {};
 		const stock = stockAt(this.game.stock, this.game.farm.plots, plots, buildings, now);
 		const all = Object.values(buildings);

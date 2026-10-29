@@ -3,12 +3,14 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../../feature/building/building.data';
+import { demolishBlocker, demolishRefund, demolishSeconds, lowestLevel } from '../../feature/building/building.demolish';
 import { costAtLevel } from '../../feature/building/building.cost';
 import {
 	buildersBusyUntil,
 	buildSeconds,
 	formatDuration,
 	hallLevel,
+	isGone,
 	levelAt,
 	nowSignal,
 	runningUpgrade,
@@ -52,7 +54,13 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 				>
 					@if (view.running; as running) {
 						<h2 id="building-work" class="t-item">
-							<span translate>Будується рівень</span> {{ running.level }}
+							@if (!running.down) {
+								<span translate>Будується рівень</span> {{ running.level }}
+							} @else if (running.level) {
+								<span translate>Розбирається до рівня</span> {{ running.level }}
+							} @else {
+								<span translate>Розбирається</span>
+							}
 						</h2>
 						<div
 							class="building-progress mt-4"
@@ -140,6 +148,101 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 						}
 					}
 				</section>
+				@if (view.level) {
+					<section class="t-card mt-4" aria-labelledby="building-demolish">
+						<h2 id="building-demolish" class="t-item" translate>Розібрати</h2>
+						@if (!view.demolish.options.length) {
+							<p class="mt-3 text-sm text-[var(--c-text-muted)]" translate>
+								Так розібрати не можна.
+							</p>
+						} @else {
+							<div class="mt-3 flex flex-wrap gap-2" role="radiogroup">
+								@for (option of view.demolish.options; track option.to) {
+									<label
+										class="btn demolish-choice"
+										[class.demolish-choice--active]="option.to === view.demolish.to"
+									>
+										<input
+											class="sr-only"
+											type="radio"
+											name="demolish-to"
+											[checked]="option.to === view.demolish.to"
+											(change)="pickDemolish(option.to)"
+										/>
+										@if (option.to) {
+											<span><span translate>До рівня</span> {{ option.to }}</span>
+										} @else {
+											<span translate>Повністю</span>
+										}
+									</label>
+								}
+							</div>
+							@if (view.demolish.blocker) {
+								<p
+									class="mt-4 text-sm text-[var(--c-text-muted)]"
+									[translate]="view.demolish.blocker"
+								>
+									{{ view.demolish.blocker }}
+								</p>
+							} @else {
+							<p class="mt-4 text-sm text-[var(--c-text-muted)]" translate>
+								Повернеться половина вартості
+							</p>
+							<ul class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+								<li class="flex items-center gap-1.5" [title]="labels().time">
+									<span
+										class="material-symbols-outlined text-[20px] text-[var(--c-text-muted)]"
+										aria-hidden="true"
+										>schedule</span
+									>
+									<span class="sr-only">{{ labels().time }}:</span>
+									<span class="font-semibold tabular-nums">{{ view.demolish.time }}</span>
+								</li>
+								@for (part of view.demolish.refund; track part.id) {
+									<li class="flex items-center gap-1.5" [title]="part.label">
+										<span
+											class="material-symbols-outlined text-[20px]"
+											[style.color]="part.color"
+											aria-hidden="true"
+											>{{ part.icon }}</span
+										>
+										<span class="sr-only">{{ part.label }}:</span>
+										<span class="font-semibold tabular-nums">+{{ part.amount }}</span>
+									</li>
+								}
+							</ul>
+							@if (confirmingDemolish()) {
+								<p class="mt-4 text-sm text-[var(--c-secondary)]" translate>
+									Це не можна скасувати.
+								</p>
+								<div class="mt-2 flex flex-wrap gap-3">
+									<button
+										class="btn btn--primary"
+										[disabled]="demolishing()"
+										(click)="demolish()"
+										type="button"
+									>
+										<span translate>Підтвердити</span>
+									</button>
+									<button class="btn" (click)="confirmingDemolish.set(false)" type="button">
+										<span translate>Скасувати</span>
+									</button>
+								</div>
+							} @else {
+								<button class="btn mt-4" (click)="confirmingDemolish.set(true)" type="button">
+									<span class="material-symbols-outlined" aria-hidden="true">delete</span>
+									<span translate>Розібрати</span>
+								</button>
+							}
+							@if (demolishFailed()) {
+								<p class="mt-2 text-sm text-[var(--c-secondary)]" role="alert" translate>
+									Не вдалося розібрати. Спробуйте ще раз.
+								</p>
+							}
+							}
+						}
+					</section>
+				}
 				</aside>
 
 				@if (view.type.id === 'marketplace' && view.level) {
@@ -171,6 +274,11 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 			background: var(--c-bg-tertiary);
 			color: var(--c-primary-text);
 			font-size: 40px;
+		}
+
+		.demolish-choice--active {
+			border-color: var(--c-primary);
+			color: var(--c-primary-text);
 		}
 
 		.cost-short {
@@ -209,8 +317,17 @@ export class BuildingComponent {
 	protected readonly error = signal(false);
 	protected readonly upgrading = signal(false);
 	protected readonly failed = signal(false);
+	/** The level the dismantle goes down to; null until the lord picks, then the first choice. */
+	protected readonly demolishTo = signal<number | null>(null);
+	protected readonly confirmingDemolish = signal(false);
+	protected readonly demolishing = signal(false);
+	protected readonly demolishFailed = signal(false);
 	protected readonly building = computed(
-		() => this.state()?.village.buildings?.[this.slot()] ?? null,
+		() => {
+			const building = this.state()?.village.buildings?.[this.slot()] ?? null;
+
+			return building && !isGone(building, this._now()) ? building : null;
+		},
 	);
 	protected readonly missing = computed(() => this.loaded() && !this.building());
 	protected readonly labels = computed(() => {
@@ -237,11 +354,34 @@ export class BuildingComponent {
 		const next = costAtLevel(type.cost, level + 1);
 		const lacking = shortfall(this._game.stockNow(game, now), next);
 
+		const options: { to: number }[] = [];
+
+		for (let to = level - 1; to >= lowestLevel(type.id); to--) {
+			options.push({ to });
+		}
+
+		const chosen = options.find((o) => o.to === this.demolishTo())?.to ?? options[0]?.to ?? 0;
+		const back = demolishRefund(type.cost, level, chosen);
+
 		return {
+			demolish: {
+				blocker: demolishBlocker(buildings, this.slot(), chosen, now, game.farm.levels ?? {}),
+				time: formatDuration(demolishSeconds(type, level, chosen, hallLevel(buildings, now))),
+				options,
+				to: chosen,
+				refund: RESOURCES.filter((resource) => back[resource.id]).map((resource) => ({
+					id: resource.id,
+					icon: resource.icon,
+					color: resource.color,
+					label: this._translateService.translate(resource.name)(),
+					amount: back[resource.id]!,
+				})),
+			},
 			type,
 			level,
 			running: running && {
 				level: running.level,
+				down: !!running.down,
 				left: formatDuration((running.endsAt - now) / 1000),
 				percent: Math.round(
 					((now - running.startedAt) / (running.endsAt - running.startedAt)) * 100,
@@ -272,6 +412,31 @@ export class BuildingComponent {
 
 		this._game.upgrade(Number(this.slot())).catch((error) => console.error(error));
 		await this._leave();
+	}
+
+	protected pickDemolish(to: number) {
+		this.demolishTo.set(to);
+		this.confirmingDemolish.set(false);
+	}
+
+	/** Starts taking the building down to the picked level and leaves, as an upgrade does. */
+	protected async demolish() {
+		const to = this.view()?.demolish.to ?? 0;
+
+		this.demolishing.set(true);
+		this.demolishFailed.set(false);
+
+		try {
+			await this._game.demolish(Number(this.slot()), to);
+			this.confirmingDemolish.set(false);
+			this.demolishTo.set(null);
+			await this._leave();
+		} catch (error) {
+			console.error(error);
+			this.demolishFailed.set(true);
+		} finally {
+			this.demolishing.set(false);
+		}
 	}
 
 	/** Back to the page the lord came from; the village when the page was opened directly. */

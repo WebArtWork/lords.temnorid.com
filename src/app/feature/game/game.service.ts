@@ -1,11 +1,13 @@
 import { inject, Service, signal } from '@angular/core';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { costAtLevel } from '../building/building.cost';
+import { demolishBlocker, demolishRefund, demolishSeconds } from '../building/building.demolish';
 import { BuildingId, Construction, VillageBuilding } from '../building/building.interface';
 import {
 	buildersBusyUntil,
 	buildSeconds,
 	hallLevel,
+	isGone,
 	levelAt,
 	runningUpgrade,
 } from '../building/building.timing';
@@ -169,7 +171,9 @@ export class GameService {
 
 	/** Starts raising a building on a free village place. Level 1 is ready once its time runs out. */
 	async build(slot: number, type: BuildingId): Promise<void> {
-		if (this._cache?.village.buildings?.[slot]) {
+		const there = this._cache?.village.buildings?.[slot];
+
+		if (there && !isGone(there, Date.now())) {
 			throw new Error('Something already stands on this place.');
 		}
 
@@ -180,7 +184,7 @@ export class GameService {
 	async upgrade(slot: number): Promise<void> {
 		const building = this._cache?.village.buildings?.[slot];
 
-		if (!building) {
+		if (!building || isGone(building, Date.now())) {
 			throw new Error('Nothing stands on this place.');
 		}
 
@@ -189,6 +193,47 @@ export class GameService {
 		}
 
 		await this._construct(slot, { type: building.type, level: levelAt(building, Date.now()) });
+	}
+
+	/**
+	 * Starts taking a building down to level `to` (0 tears it down). It takes a builder, half the
+	 * time each level took to raise, and half of what those levels cost comes back at once.
+	 */
+	async demolish(slot: number, to: number): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const buildings = game.village.buildings ?? {};
+		const building = buildings[slot];
+		const blocker = demolishBlocker(buildings, String(slot), to, now, game.farm.levels ?? {});
+
+		if (!building || blocker) {
+			throw new Error(blocker || 'Nothing stands on this place.');
+		}
+
+		const type = BUILDING_BY_ID[building.type];
+		const level = levelAt(building, now);
+		const refund = demolishRefund(type.cost, level, to);
+		const seconds = demolishSeconds(type, level, to, hallLevel(buildings, now));
+		// The stores are counted before the work starts, and the refund may pass their capacity.
+		const amounts = { ...this.stockNow(game, now) };
+
+		for (const [id, amount] of Object.entries(refund)) {
+			amounts[id as ResourceId] += amount;
+		}
+
+		const stock: StockSave = { amounts, at: now };
+		const working: VillageBuilding = {
+			type: building.type,
+			level,
+			upgrade: { level: to, startedAt: now, endsAt: now + seconds * 1000, down: true },
+		};
+
+		await this._progress.setDemolished(game.uid, slot, working, stock);
+		this._update({
+			...game,
+			stock,
+			village: { ...game.village, buildings: { ...buildings, [slot]: working } },
+		});
 	}
 
 	/** Starts working a farm plot up to its next level. */
@@ -275,7 +320,7 @@ export class GameService {
 		return {
 			construction: {
 				level,
-				upgrade: { level: level + 1, startedAt: now, endsAt: now + seconds * 1000 },
+				upgrade: { level: level + 1, startedAt: now, endsAt: now + seconds * 1000, down: false },
 			},
 			stock: { amounts: spend(available, cost), at: now },
 		};

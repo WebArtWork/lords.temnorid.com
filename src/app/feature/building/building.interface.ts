@@ -64,6 +64,8 @@ export interface Construction {
 		/** Epoch milliseconds. */
 		startedAt: number;
 		endsAt: number;
+		/** True while a building is being taken down: `level` is then the lower level it ends at. */
+		down?: boolean;
 	};
 }
 
