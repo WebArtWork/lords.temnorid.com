@@ -18,9 +18,6 @@ import { ProgressService } from '../progress/progress.service';
 import { Point } from '../map/map-geometry';
 import { Offer, Shipment, TradeError, travelSeconds } from './market';
 
-/** Where offers without a place are taken to stand: the heart of the world, Kamianets. */
-const CENTRE: Point = { x: 0, y: 0 };
-
 /** Most offers the board lists at once. */
 const BOARD_LIMIT = 100;
 
@@ -116,7 +113,7 @@ export class MarketService {
 				throw new TradeError('Це ваша власна пропозиція.');
 			}
 
-			const seconds = travelSeconds(offer.at ?? CENTRE, buyerAt);
+			const seconds = travelSeconds(offer.at, buyerAt);
 			const { stock, shipments } = planFor(offer, seconds);
 
 			tx.update(ref, {

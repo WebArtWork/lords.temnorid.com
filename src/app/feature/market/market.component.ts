@@ -552,7 +552,7 @@ protected setWant(id: ResourceId) {
 
 /** The road from an offer's village to this lord's. */
 protected road(offer: Offer): string {
-	return formatDuration(travelSeconds(offer.at ?? { x: 0, y: 0 }, this._at()));
+	return formatDuration(travelSeconds(offer.at, this._at()));
 }
 
 /** Milliseconds until a bought offer's payment reaches the poster. */

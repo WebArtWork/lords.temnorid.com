@@ -75,8 +75,8 @@ export interface Offer {
 	status: 'open' | 'filled';
 	/** Epoch milliseconds; 0 until the server has stamped it. */
 	createdAt: number;
-	/** The poster's village on the world map; offers posted before this existed have none. */
-	at?: Point;
+	/** The poster's village on the world map. */
+	at: Point;
 	/** Set when bought: epoch milliseconds, the buyer's village, and the road between the two. */
 	filledAt?: number;
 	buyerAt?: Point;
