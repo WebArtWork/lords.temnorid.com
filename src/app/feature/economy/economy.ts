@@ -38,11 +38,11 @@ export const PLOT_GROWTH = 1.25;
 
 /**
  * What the next plot of a resource costs, given how many extra ones were bought of it: the first
- * costs what working a plot up to level 10 does, the second level 20, the third level 30, and so on.
+ * costs what working a plot up to level 10 does, and each one after it two levels more.
  * Costly on purpose, so nobody buys many, though anyone can.
  */
 export function newPlotCost(bought: number): Partial<Amounts> {
-	return costAtLevel(PLOT_COST, 10 * (bought + 1));
+	return costAtLevel(PLOT_COST, 10 + 2 * bought);
 }
 
 /** Which store holds each resource. */

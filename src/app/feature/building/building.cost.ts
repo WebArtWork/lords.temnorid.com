@@ -1,7 +1,10 @@
 import { ResourceId } from '../resource/resource.interface';
 
-/** Each level costs this much more than the one before, as in Travian. */
-export const COST_GROWTH = 1.28;
+/**
+ * Each level costs this much more than the one before. Steep on purpose: a plot (70 of all goods at
+ * level 1) costs about 20k in total at level 10 and about 38k at level 11.
+ */
+export const COST_GROWTH = 1.88;
 
 /** What reaching `level` costs, given what level 1 costs. Rounded to fives, as prices are. */
 export function costAtLevel(
