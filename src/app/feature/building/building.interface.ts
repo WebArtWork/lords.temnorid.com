@@ -47,10 +47,14 @@ export interface BuildingType {
 	repeatable?: boolean;
 	/** Stands only in the middle of the village (CENTER_PLACE), and nothing else stands there. */
 	center?: boolean;
+	/** Runs round the village (WALL_PLACE) instead of standing on a place. */
+	wall?: boolean;
 }
 
 /** Place id of the village centre. Ordinary places are numbered from 1. */
 export const CENTER_PLACE = 0;
+/** Place id of the wall round the village: it is drawn along the edge, and no house stands there. */
+export const WALL_PLACE = -1;
 
 /**
  * Something that is raised level by level over time: a building or a farm plot. `level` is the

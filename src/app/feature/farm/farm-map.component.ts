@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, ElementRef, inject, input, model, signal } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, input, model, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { Construction } from '../building/building.interface';
@@ -14,6 +14,7 @@ import {
 	uprightTurn,
 } from '../map/map-view';
 import { RESOURCE_BY_ID } from '../resource/resource.data';
+import { ResourceId } from '../resource/resource.interface';
 import { FarmMap } from './farm.interface';
 
 /** Draws generated farmland. Plots are buttons; the picked one is two-way bound to `selected`. */
@@ -153,6 +154,21 @@ import { FarmMap } from './farm.interface';
 					}
 				</g>
 			}
+			@for (add of map().adds; track add.resource + add.patch) {
+				<g
+					class="farm-add"
+					[attr.transform]="at(add) + plotScale()"
+					role="button"
+					tabindex="0"
+					[attr.aria-label]="labels().grow + ': ' + labels().names[add.resource]"
+					(click)="grow.emit({ resource: add.resource, patch: add.patch })"
+					(keydown.enter)="grow.emit({ resource: add.resource, patch: add.patch })"
+					(keydown.space)="$event.preventDefault(); grow.emit({ resource: add.resource, patch: add.patch })"
+				>
+					<circle class="farm-add__disc" r="23" [attr.stroke]="resources[add.resource].color" />
+					<path class="farm-add__plus" d="M-9 0 H9 M0 -9 V9" [attr.stroke]="resources[add.resource].color" />
+				</g>
+			}
 			</g>
 		</svg>
 	`,
@@ -218,6 +234,28 @@ import { FarmMap } from './farm.interface';
 			stroke-width: 5;
 		}
 
+		.farm-add {
+			cursor: pointer;
+			outline: none;
+		}
+
+		.farm-add__disc {
+			fill: rgb(255 250 240 / 0.45);
+			stroke-dasharray: 6 5;
+			stroke-width: 4;
+		}
+
+		.farm-add__plus {
+			fill: none;
+			stroke-linecap: round;
+			stroke-width: 5;
+		}
+
+		.farm-add:hover .farm-add__disc,
+		.farm-add:focus-visible .farm-add__disc {
+			fill: #fffaf0;
+		}
+
 		.farm-plot__icon {
 			font-size: 25px;
 			pointer-events: none;
@@ -245,6 +283,8 @@ export class FarmMapComponent {
 
 	readonly map = input.required<FarmMap>();
 	readonly selected = model<number | null>(null);
+	/** The plus beside a patch was pressed: the page offers to grow that resource. */
+	readonly grow = output<{ resource: ResourceId; patch: number }>();
 	/** Fill the host's whole box, keeping every plot in view, instead of sizing from the width. */
 	readonly fill = input(false);
 	/** How far each plot has been worked, by plot id. */
@@ -299,6 +339,7 @@ export class FarmMapComponent {
 			map: t('Мапа угідь'),
 			village: t('Перейти до поселення'),
 			level: t('рівень'),
+			grow: t('Розширити угіддя'),
 			names: Object.fromEntries(
 				Object.values(RESOURCE_BY_ID).map((r) => [r.id, t(r.name)]),
 			) as Record<string, string>,

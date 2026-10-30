@@ -1,7 +1,7 @@
-import { Component, computed, DestroyRef, ElementRef, inject, input, model, signal } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, input, model, output, signal } from '@angular/core';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
-import { CENTER_PLACE, VillageBuilding } from '../building/building.interface';
+import { CENTER_PLACE, VillageBuilding, WALL_PLACE } from '../building/building.interface';
 import { formatDuration, levelAt, runningUpgrade, standing } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
 import {
@@ -72,6 +72,16 @@ import { VillageMap } from './village.interface';
 			}
 
 			<path [attr.d]="map().boundary" [attr.fill]="palette().ground" [attr.stroke]="palette().groundEdge" stroke-width="6" />
+
+			<!-- The wall runs along the edge of the village; the roads pass over it as gates. -->
+			@if (present()[wall]; as stone) {
+				@if (levelOf(stone)) {
+					<path [attr.d]="map().boundary" fill="none" stroke="#7d7466" stroke-width="16" stroke-linejoin="round" />
+					<path [attr.d]="map().boundary" fill="none" stroke="#cfc6b2" stroke-width="9" stroke-linejoin="round" stroke-dasharray="14 7" />
+				} @else {
+					<path class="village-scaffold" [attr.d]="map().boundary" fill="none" stroke-width="6" stroke-dasharray="3 10" />
+				}
+			}
 
 			@for (road of map().roads; track $index) {
 				<path [attr.d]="road.d" fill="none" [attr.stroke]="palette().road" [attr.stroke-width]="road.width" stroke-linecap="round" />
@@ -173,6 +183,56 @@ import { VillageMap } from './village.interface';
 						@default never;
 					}
 				}
+			</g>
+
+			<g
+				class="village-slot village-wall"
+				[class.village-slot--selected]="selected() === wall"
+				[attr.transform]="'translate(' + map().wall.x + ' ' + map().wall.y + ')' + upright()"
+				role="button"
+				tabindex="0"
+				[attr.aria-label]="slotLabel(wall)"
+				[attr.aria-pressed]="selected() === wall"
+				(click)="toggle(wall)"
+				(keydown.enter)="toggle(wall)"
+				(keydown.space)="$event.preventDefault(); toggle(wall)"
+			>
+				<ellipse class="village-slot__ring" cx="0" cy="0" rx="26" ry="22" />
+				@if (present()[wall]; as stone) {
+					<circle class="village-building__badge" cx="0" cy="0" r="15" />
+					<text class="material-symbols-outlined village-building__icon" x="0" y="1">fort</text>
+					@if (levelOf(stone); as level) {
+						<g transform="translate(14 -14)">
+							<circle class="village-building__level" r="11" />
+							<text class="village-building__level-text" y="1">{{ level }}</text>
+						</g>
+					}
+					<text class="village-building__name" x="0" y="26">{{ nameOf(stone) }}</text>
+					@if (timeLeft(stone); as left) {
+						<g transform="translate(0 46)">
+							<rect class="village-building__timer" x="-30" y="-10" width="60" height="20" rx="10" />
+							<text class="village-building__timer-text" y="1">{{ left }}</text>
+						</g>
+					}
+				} @else {
+					<circle class="village-slot__plot" cx="0" cy="0" r="15" />
+					<path class="village-slot__plus" d="M-7 0 H7 M0 -7 V7" />
+				}
+			</g>
+
+			<g
+				class="village-slot"
+				[attr.transform]="'translate(' + map().grow.x + ' ' + map().grow.y + ')' + upright()"
+				role="button"
+				tabindex="0"
+				[attr.aria-label]="labels().grow"
+				(click)="extend.emit()"
+				(keydown.enter)="extend.emit()"
+				(keydown.space)="$event.preventDefault(); extend.emit()"
+			>
+				<ellipse class="village-slot__ring" cx="0" cy="0" rx="46" ry="30" />
+				<ellipse class="village-slot__plot village-grow__plot" cx="0" cy="0" rx="40" ry="25" />
+				<path class="village-slot__plus village-grow__plus" d="M-8 0 H8 M0 -8 V8" />
 			</g>
 
 			@for (tree of map().trees; track $index) {
@@ -354,6 +414,15 @@ import { VillageMap } from './village.interface';
 			}
 		}
 
+		/* Always showing, unlike the free places, which only show a plus under the pointer. */
+		.village-grow__plot {
+			stroke-dasharray: 3 7;
+		}
+
+		.village-grow__plus {
+			opacity: 0.8;
+		}
+
 		.village-slot--selected {
 			.village-slot__plot {
 				fill: rgba(228, 167, 74, 0.45);
@@ -384,6 +453,8 @@ export class VillageMapComponent {
 	readonly now = input(0);
 	/** Fill the host's whole box, keeping every slot in view, instead of sizing from the width. */
 	readonly fill = input(false);
+	/** The plus on open ground was pressed: the page offers one more place to build. */
+	readonly extend = output();
 
 	/** The host's box, to tell a phone from a big screen and portrait from landscape. */
 	private readonly _box = signal({ width: 0, height: 0 });
@@ -419,6 +490,7 @@ export class VillageMapComponent {
 	protected readonly palette = computed(() => this.map().palette);
 	protected readonly planks = [-16, -6, 4, 14];
 	protected readonly center = CENTER_PLACE;
+	protected readonly wall = WALL_PLACE;
 	/** Banner poles round the arena's stands. */
 	protected readonly arenaFlags = [
 		{ x: -40, y: -12 },
@@ -437,6 +509,8 @@ export class VillageMapComponent {
 			slot: this._translateService.translate('Вільне місце')(),
 			level: this._translateService.translate('рівень')(),
 			center: this._translateService.translate('Центр поселення')(),
+			wall: this._translateService.translate('Мур')(),
+			grow: this._translateService.translate('Розширити поселення')(),
 		};
 	});
 
@@ -483,7 +557,9 @@ export class VillageMapComponent {
 			? `${this._translateService.translate(type.name)()}, ${this.labels().level} ${this.levelOf(building)}`
 			: id === CENTER_PLACE
 				? this.labels().center
-				: `${this.labels().slot} ${id}`;
+				: id === WALL_PLACE
+					? this.labels().wall
+					: `${this.labels().slot} ${id}`;
 	}
 
 	protected toggle(id: number) {

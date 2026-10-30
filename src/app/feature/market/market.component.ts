@@ -1,18 +1,21 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
-import { nowSignal } from '../building/building.timing';
+import { formatDuration, nowSignal } from '../building/building.timing';
 import { GameService } from '../game/game.service';
 import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 import { ResourceId } from '../resource/resource.interface';
 import {
 	marketLevel,
+	nearestCity,
 	npcRate,
 	npcReceive,
 	Offer,
 	offerLimit,
 	OFFER_MAX_AMOUNT,
+	paymentArrivesAt,
 	TradeError,
+	travelSeconds,
 } from './market';
 import { MarketService } from './market.service';
 
@@ -59,12 +62,52 @@ type Tab = 'npc' | 'board' | 'mine';
 				}
 			</div>
 
+			@if (shipments().length) {
+				<div class="market-road mt-5">
+					<h3 class="t-item" translate>У дорозі</h3>
+					<ul class="mt-2 grid gap-2">
+						@for (shipment of shipments(); track shipment.id) {
+							<li class="flex flex-wrap items-center gap-x-3 gap-y-1">
+								<ng-container
+									*ngTemplateOutlet="res; context: { $implicit: shipment.resource, amount: shipment.amount }"
+								/>
+								<span class="text-sm text-[var(--c-text-muted)]">
+									<span translate>Від</span> {{ shipment.from }}
+								</span>
+								<span class="text-sm text-[var(--c-text-muted)]">
+									<span translate>Прибуде за</span>
+									<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+										shipment.left
+									}}</span>
+								</span>
+							</li>
+						}
+					</ul>
+				</div>
+			}
+
 			<div class="mt-5" aria-live="polite">
 				@switch (tab()) {
 					@case ('npc') {
 						<form (submit)="exchange($event)" novalidate>
 							<p class="text-[var(--c-text-muted)]" translate>
-								Торговці міняють одразу, але беруть собі частку.
+								Торговці беруть собі частку. Товар їде до найближчого міста, тому обмін займає час.
+							</p>
+							<p class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+								<span class="inline-flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[20px]" aria-hidden="true"
+										>castle</span
+									>
+									<span class="text-[var(--c-text-muted)]" translate>Найближче місто</span>
+									<span class="font-semibold">{{ cityName() }}</span>
+								</span>
+								<span class="inline-flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[20px]" aria-hidden="true"
+										>local_shipping</span
+									>
+									<span class="text-[var(--c-text-muted)]" translate>Час у дорозі</span>
+									<span class="font-semibold tabular-nums">{{ npcTime() }}</span>
+								</span>
 							</p>
 							<div class="mt-4 grid gap-4 sm:grid-cols-2">
 								<div>
@@ -72,11 +115,12 @@ type Tab = 'npc' | 'board' | 'mine';
 									<select
 										id="npc-give"
 										class="market-field"
-										[value]="give()"
-										(change)="give.set(pick($event))"
+										(change)="setGive(pick($event))"
 									>
 										@for (r of resources; track r.id) {
-											<option [value]="r.id">{{ names()[r.id] }}</option>
+											<option [value]="r.id" [selected]="r.id === give()">
+												{{ names()[r.id] }}
+											</option>
 										}
 									</select>
 								</div>
@@ -85,11 +129,12 @@ type Tab = 'npc' | 'board' | 'mine';
 									<select
 										id="npc-want"
 										class="market-field"
-										[value]="want()"
-										(change)="want.set(pick($event))"
+										(change)="setWant(pick($event))"
 									>
 										@for (r of resources; track r.id) {
-											<option [value]="r.id">{{ names()[r.id] }}</option>
+											<option [value]="r.id" [selected]="r.id === want()">
+												{{ names()[r.id] }}
+											</option>
 										}
 									</select>
 								</div>
@@ -150,6 +195,15 @@ type Tab = 'npc' | 'board' | 'mine';
 													*ngTemplateOutlet="res; context: { $implicit: offer.want, amount: offer.wantAmount }"
 												/>
 											</p>
+											<p class="mt-1 flex items-center gap-1.5 text-sm text-[var(--c-text-muted)]">
+												<span class="material-symbols-outlined text-[18px]" aria-hidden="true"
+													>local_shipping</span
+												>
+												<span translate>Дорога до вас</span>
+												<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+													road(offer)
+												}}</span>
+											</p>
 										</div>
 										<button
 											class="btn btn--primary"
@@ -180,11 +234,12 @@ type Tab = 'npc' | 'board' | 'mine';
 									<select
 										id="offer-give"
 										class="market-field"
-										[value]="give()"
-										(change)="give.set(pick($event))"
+										(change)="setGive(pick($event))"
 									>
 										@for (r of resources; track r.id) {
-											<option [value]="r.id">{{ names()[r.id] }}</option>
+											<option [value]="r.id" [selected]="r.id === give()">
+												{{ names()[r.id] }}
+											</option>
 										}
 									</select>
 									<input
@@ -204,11 +259,12 @@ type Tab = 'npc' | 'board' | 'mine';
 									<select
 										id="offer-want"
 										class="market-field"
-										[value]="want()"
-										(change)="want.set(pick($event))"
+										(change)="setWant(pick($event))"
 									>
 										@for (r of resources; track r.id) {
-											<option [value]="r.id">{{ names()[r.id] }}</option>
+											<option [value]="r.id" [selected]="r.id === want()">
+												{{ names()[r.id] }}
+											</option>
 										}
 									</select>
 									<input
@@ -253,7 +309,15 @@ type Tab = 'npc' | 'board' | 'mine';
 													*ngTemplateOutlet="res; context: { $implicit: offer.want, amount: offer.wantAmount }"
 												/>
 											</p>
-											@if (offer.status === 'filled') {
+											@if (offer.status === 'filled' && paymentLeft(offer) > 0) {
+												<p class="mt-1 text-sm text-[var(--c-text-muted)]">
+													<span translate>Куплено. Оплата в дорозі.</span>
+													<span translate>Оплата прибуде за</span>
+													<span class="font-semibold tabular-nums text-[var(--c-text-strong)]">{{
+														paymentIn(offer)
+													}}</span>
+												</p>
+											} @else if (offer.status === 'filled') {
 												<p class="mt-1 text-sm text-[var(--c-text-muted)]" translate>
 													Куплено. Заберіть оплату.
 												</p>
@@ -266,7 +330,7 @@ type Tab = 'npc' | 'board' | 'mine';
 										@if (offer.status === 'filled') {
 											<button
 												class="btn btn--primary"
-												[disabled]="busy()"
+												[disabled]="busy() || paymentLeft(offer) > 0"
 												(click)="collect(offer)"
 												type="button"
 											>
@@ -305,6 +369,12 @@ type Tab = 'npc' | 'board' | 'mine';
 		.market-tab--active {
 			border-color: var(--c-primary);
 			background: var(--c-bg-tertiary);
+		}
+
+		.market-road {
+			border: 1px dashed var(--c-border);
+			border-radius: var(--t-radius-btn);
+			padding: 0.75rem 1rem;
 		}
 
 		.market-label {
@@ -381,6 +451,38 @@ export class MarketComponent {
 	private readonly _level = computed(() =>
 		marketLevel(this._game.game()?.village.buildings ?? {}, this._now()),
 	);
+	private readonly _at = computed(() => {
+		const game = this._game.game();
+
+		return game ? this._game.villageAt(game) : { x: 0, y: 0 };
+	});
+	private readonly _city = computed(() => nearestCity(this._at()));
+	protected readonly cityName = computed(() => {
+		this._languageService.language();
+
+		return this._translateService.translate(this._city().name)();
+	});
+	protected readonly npcTime = computed(() =>
+		formatDuration(travelSeconds(this._at(), this._city())),
+	);
+	/** Goods on their way to the stores, soonest first. */
+	protected readonly shipments = computed(() => {
+		this._languageService.language();
+		const now = this._now();
+
+		return [...(this._game.game()?.shipments ?? [])]
+			.sort((a, b) => a.arriveAt - b.arriveAt)
+			.map((shipment) => ({
+				id: shipment.id,
+				resource: shipment.resource,
+				amount: shipment.amount,
+				from:
+					shipment.kind === 'npc'
+						? this._translateService.translate(shipment.source)()
+						: shipment.source,
+				left: formatDuration((shipment.arriveAt - now) / 1000),
+			}));
+	});
 	protected readonly limit = computed(() => offerLimit(this._level()));
 	protected readonly rate = computed(() => Math.round(npcRate(this._level()) * 100));
 	protected readonly receive = computed(() => npcReceive(this._number(this.amount()), this._level()));
@@ -431,7 +533,42 @@ export class MarketComponent {
 		return (event.target as HTMLInputElement).value;
 	}
 
-	protected open(tab: Tab) {
+	/** Picks what to give, and moves the other side off it, since a trade needs two goods. */
+protected setGive(id: ResourceId) {
+	this.give.set(id);
+
+	if (this.want() === id) {
+		this.want.set(this._other(id));
+	}
+}
+
+protected setWant(id: ResourceId) {
+	this.want.set(id);
+
+	if (this.give() === id) {
+		this.give.set(this._other(id));
+	}
+}
+
+/** The road from an offer's village to this lord's. */
+protected road(offer: Offer): string {
+	return formatDuration(travelSeconds(offer.at ?? { x: 0, y: 0 }, this._at()));
+}
+
+/** Milliseconds until a bought offer's payment reaches the poster. */
+protected paymentLeft(offer: Offer): number {
+	return paymentArrivesAt(offer) - this._now();
+}
+
+protected paymentIn(offer: Offer): string {
+	return formatDuration(this.paymentLeft(offer) / 1000);
+}
+
+private _other(id: ResourceId): ResourceId {
+	return RESOURCES.find((r) => r.id !== id)!.id;
+}
+
+protected open(tab: Tab) {
 		this.tab.set(tab);
 		this.message.set(null);
 	}
@@ -441,7 +578,7 @@ export class MarketComponent {
 
 		return this._run(
 			() => this._game.exchange(this.give(), this._number(this.amount()), this.want()),
-			'Обмін зроблено.',
+			'Обмін розпочато. Товар у дорозі.',
 			() => this.amount.set(''),
 		);
 	}
@@ -475,7 +612,7 @@ export class MarketComponent {
 	}
 
 	protected buy(offer: Offer) {
-		return this._run(() => this._game.buyOffer(offer), 'Куплено.');
+		return this._run(() => this._game.buyOffer(offer), 'Куплено. Товар у дорозі.');
 	}
 
 	protected cancel(offer: Offer) {

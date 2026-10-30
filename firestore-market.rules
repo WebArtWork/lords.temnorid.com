@@ -8,12 +8,16 @@
 //   2. Deploy from temnorid.com:  firebase deploy --only firestore:rules
 //
 //   lordsOffers/{id}   one offer: { uid, lordName, give, giveAmount, want, wantAmount, status,
-//                      createdAt } and, once bought, { buyerUid, buyerName, filledAt }
+//                      createdAt, at } and, once bought, { buyerUid, buyerName, buyerAt,
+//                      travelSeconds, filledAt }. `at` and `buyerAt` are the two villages' world
+//                      tiles { x, y }; the road between them sets `travelSeconds`.
 //
 // Life of an offer: the poster creates it `open` (the game takes the goods out of their stores in
 // the same batch). A buyer flips it to `filled` in a transaction that also saves their own stores,
-// so two buyers cannot take it. The poster then deletes it while collecting the payment, or deletes
-// an `open` one to cancel it and get the goods back. Nobody can edit the amounts.
+// so two buyers cannot take it. The goods and the payment each take the road between the villages:
+// the poster can delete a bought offer, collecting the payment, only once `travelSeconds` have passed
+// since `filledAt`; an `open` one can be deleted at any time to cancel it and get the goods back.
+// Nobody can edit the amounts.
 // The game checks the limit of open offers per marketplace level; rules cannot count documents.
 
     function lordsResource(id) {
@@ -24,15 +28,20 @@
       return n is int && n >= 1 && n <= 100000;
     }
 
+    function lordsTile(p) {
+      return p is map && p.keys().hasOnly(['x', 'y']) && p.x is number && p.y is number;
+    }
+
     match /lordsOffers/{id} {
       allow read: if signedIn();
 
       allow create: if signedIn()
         && isUser(request.resource.data.uid)
         && request.resource.data.keys().hasOnly(
-          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt'])
+          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt', 'at'])
         && request.resource.data.keys().hasAll(
-          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt'])
+          ['uid', 'lordName', 'give', 'giveAmount', 'want', 'wantAmount', 'status', 'createdAt', 'at'])
+        && lordsTile(request.resource.data.at)
         && request.resource.data.status == 'open'
         && request.resource.data.createdAt == request.time
         && request.resource.data.lordName is string
@@ -55,8 +64,15 @@
         && request.resource.data.buyerName.size() <= 40
         && request.resource.data.filledAt == request.time
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'buyerUid', 'buyerName', 'filledAt']);
+          .hasOnly(['status', 'buyerUid', 'buyerName', 'buyerAt', 'travelSeconds', 'filledAt'])
+        && lordsTile(request.resource.data.buyerAt)
+        && request.resource.data.travelSeconds is number
+        && request.resource.data.travelSeconds >= 0
+        && request.resource.data.travelSeconds <= 604800;
 
       // Cancelling an open offer, or clearing a bought one after collecting the payment.
-      allow delete: if signedIn() && isUser(resource.data.uid);
+      allow delete: if signedIn() && isUser(resource.data.uid)
+        && (resource.data.status == 'open'
+          || request.time >= resource.data.filledAt
+            + duration.value(int(resource.data.travelSeconds), 's'));
     }

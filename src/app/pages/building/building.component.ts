@@ -156,27 +156,18 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 								Так розібрати не можна.
 							</p>
 						} @else {
-							<div class="mt-3 flex flex-wrap gap-2" role="radiogroup">
+							<label class="sr-only" for="demolish-to" translate>Розібрати</label>
+							<select
+								id="demolish-to"
+								class="writer-input mt-3 w-full"
+								(change)="pickDemolish(+$any($event.target).value)"
+							>
 								@for (option of view.demolish.options; track option.to) {
-									<label
-										class="btn demolish-choice"
-										[class.demolish-choice--active]="option.to === view.demolish.to"
-									>
-										<input
-											class="sr-only"
-											type="radio"
-											name="demolish-to"
-											[checked]="option.to === view.demolish.to"
-											(change)="pickDemolish(option.to)"
-										/>
-										@if (option.to) {
-											<span><span translate>До рівня</span> {{ option.to }}</span>
-										} @else {
-											<span translate>Повністю</span>
-										}
-									</label>
+									<option [value]="option.to" [selected]="option.to === view.demolish.to">
+										{{ option.label }}
+									</option>
 								}
-							</div>
+							</select>
 							@if (view.demolish.blocker) {
 								<p
 									class="mt-4 text-sm text-[var(--c-text-muted)]"
@@ -276,11 +267,6 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 			font-size: 40px;
 		}
 
-		.demolish-choice--active {
-			border-color: var(--c-primary);
-			color: var(--c-primary-text);
-		}
-
 		.cost-short {
 			color: var(--c-secondary);
 		}
@@ -345,6 +331,7 @@ export class BuildingComponent {
 			return null;
 		}
 
+		const t = (text: string) => this._translateService.translate(text)();
 		const now = this._now();
 		const buildings = this.state()?.village.buildings ?? {};
 		const level = levelAt(building, now);
@@ -354,13 +341,15 @@ export class BuildingComponent {
 		const next = costAtLevel(type.cost, level + 1);
 		const lacking = shortfall(this._game.stockNow(game, now), next);
 
-		const options: { to: number }[] = [];
+		const options: { to: number; label: string }[] = [];
 
 		for (let to = level - 1; to >= lowestLevel(type.id); to--) {
-			options.push({ to });
+			options.push({ to, label: to ? `${t('До рівня')} ${to}` : t('Повністю') });
 		}
 
-		const chosen = options.find((o) => o.to === this.demolishTo())?.to ?? options[0]?.to ?? 0;
+		// Down as far as it goes, unless the lord picked a level.
+		const chosen =
+			options.find((o) => o.to === this.demolishTo())?.to ?? options[options.length - 1]?.to ?? 0;
 		const back = demolishRefund(type.cost, level, chosen);
 
 		return {

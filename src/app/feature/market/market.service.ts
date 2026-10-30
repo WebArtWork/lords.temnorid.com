@@ -15,7 +15,11 @@ import {
 import { StockSave } from '../economy/economy';
 import { FirebaseService } from '../firebase/firebase.service';
 import { ProgressService } from '../progress/progress.service';
-import { Offer, TradeError } from './market';
+import { Point } from '../map/map-geometry';
+import { Offer, Shipment, TradeError, travelSeconds } from './market';
+
+/** Where offers without a place are taken to stand: the heart of the world, Kamianets. */
+const CENTRE: Point = { x: 0, y: 0 };
 
 /** Most offers the board lists at once. */
 const BOARD_LIMIT = 100;
@@ -61,7 +65,7 @@ export class MarketService {
 
 	/** Lists a new offer and saves the stores with its goods taken out. */
 	async post(
-		offer: Pick<Offer, 'uid' | 'lordName' | 'give' | 'giveAmount' | 'want' | 'wantAmount'>,
+		offer: Pick<Offer, 'uid' | 'lordName' | 'give' | 'giveAmount' | 'want' | 'wantAmount' | 'at'>,
 		stock: StockSave,
 	) {
 		const batch = writeBatch(this._firebase.db);
@@ -87,14 +91,16 @@ export class MarketService {
 	}
 
 	/**
-	 * Buys an offer. `stockFor` gets the offer as it stands on the server and returns the buyer's
-	 * stores after paying and receiving, so the amounts always match what was really listed.
+	 * Buys an offer. `planFor` gets the offer as it stands on the server and the seconds the road
+	 * between the two villages takes, and returns the buyer's stores after paying plus the goods
+	 * now on their way, so the amounts always match what was really listed.
 	 */
 	async accept(
 		uid: string,
 		lordName: string,
+		buyerAt: Point,
 		id: string,
-		stockFor: (offer: Offer) => StockSave,
+		planFor: (offer: Offer, seconds: number) => { stock: StockSave; shipments: Shipment[] },
 	): Promise<void> {
 		await runTransaction(this._firebase.db, async (tx) => {
 			const ref = doc(this._offers, id);
@@ -110,10 +116,22 @@ export class MarketService {
 				throw new TradeError('Це ваша власна пропозиція.');
 			}
 
-			const stock = stockFor(offer);
+			const seconds = travelSeconds(offer.at ?? CENTRE, buyerAt);
+			const { stock, shipments } = planFor(offer, seconds);
 
-			tx.update(ref, { status: 'filled', buyerUid: uid, buyerName: lordName, filledAt: serverTimestamp() });
-			tx.set(this._progress.ref(uid), { stock, updatedAt: serverTimestamp() }, { merge: true });
+			tx.update(ref, {
+				status: 'filled',
+				buyerUid: uid,
+				buyerName: lordName,
+				buyerAt,
+				travelSeconds: seconds,
+				filledAt: serverTimestamp(),
+			});
+			tx.set(
+				this._progress.ref(uid),
+				{ stock, shipments, updatedAt: serverTimestamp() },
+				{ merge: true },
+			);
 		});
 	}
 
@@ -136,8 +154,13 @@ export class MarketService {
 
 	private _offer(id: string, data: Record<string, unknown>): Offer {
 		const created = data['createdAt'];
+		const filled = data['filledAt'];
 
 		return {
+			at: data['at'] as Offer['at'],
+			filledAt: filled instanceof Timestamp ? filled.toMillis() : undefined,
+			buyerAt: data['buyerAt'] as Offer['buyerAt'],
+			travelSeconds: data['travelSeconds'] as Offer['travelSeconds'],
 			id,
 			uid: data['uid'] as string,
 			lordName: data['lordName'] as string,

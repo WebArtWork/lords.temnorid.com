@@ -99,18 +99,66 @@ const PALETTES: Record<ElementId, VillagePalette> = {
  * so they keep their spot relative to the outline.
  */
 export function villageSlots(save: { seed: number; layout: number; slots: VillageSlot[] }): VillageSlot[] {
-	if (save.layout !== 1) {
-		return save.slots;
+	let slots = save.slots;
+
+	if (save.layout === 1) {
+		const before = _layout1Shape(save.seed).village;
+		const after = _shape(save.seed).village;
+
+		slots = save.slots.map((slot) => ({
+			id: slot.id,
+			x: round1(after.cx + (slot.x - before.cx) * VILLAGE_STRETCH.x),
+			y: round1(after.cy + (slot.y - before.cy) * VILLAGE_STRETCH.y),
+		}));
 	}
 
-	const before = _layout1Shape(save.seed).village;
-	const after = _shape(save.seed).village;
+	if (!slots.some((slot) => slot.extra)) {
+		return slots;
+	}
 
-	return save.slots.map((slot) => ({
-		id: slot.id,
-		x: round1(after.cx + (slot.x - before.cx) * VILLAGE_STRETCH.x),
-		y: round1(after.cy + (slot.y - before.cy) * VILLAGE_STRETCH.y),
-	}));
+	// A grown village is the same village drawn bigger: the places it started with spread out with
+	// it, and each bought place takes the freest spot left, the same every time.
+	const scale = villageScale(slots.length);
+	const { village, plaza } = _shape(save.seed, scale);
+	const placed: VillageSlot[] = slots
+		.filter((slot) => !slot.extra)
+		.map((slot) => ({ id: slot.id, x: round1(slot.x * scale), y: round1(slot.y * scale) }));
+
+	for (const extra of slots.filter((slot) => slot.extra)) {
+		const rng = seededRng((save.seed ^ Math.imul(extra.id, 0x1b873593)) >>> 0);
+
+		placed.push({ id: extra.id, extra: true, ..._freeSpot(rng, village, plaza, placed) });
+	}
+
+	return placed;
+}
+
+/** How much bigger the village is drawn than usual: 1 up to its starting places, then with their square root. */
+export function villageScale(places: number): number {
+	return Math.max(1, Math.sqrt(places / VILLAGE_SLOT_COUNT));
+}
+
+/** The freest spot inside the village, clear of the square: the most room to the nearest place. */
+function _freeSpot(rng: Rng, village: Blob, plaza: Blob, taken: Point[]): Point {
+	let best: Point = { x: village.cx, y: village.cy };
+	let bestGap = -1;
+
+	for (let attempt = 0; attempt < 500; attempt++) {
+		const point = blobPoint(village, rng() * TAU, range(rng, 0.15, 0.84));
+
+		if (inBlob(plaza, point.x, point.y, 1.45)) {
+			continue;
+		}
+
+		const gap = Math.min(...taken.map((other) => pointDistance(other, point)));
+
+		if (gap > bestGap) {
+			best = point;
+			bestGap = gap;
+		}
+	}
+
+	return { x: round1(best.x), y: round1(best.y) };
 }
 
 /** Samples the building slots of a new village. Call once, then save the result. */
@@ -132,7 +180,9 @@ export function generateVillage(
 	slots: VillageSlot[],
 	surroundings: FarmSurrounding[],
 ): VillageMap {
-	const { village, plaza } = _shape(seed);
+	const scale = villageScale(slots.length);
+	const dims = { width: VILLAGE_WIDTH * scale, height: VILLAGE_HEIGHT * scale };
+	const { village, plaza } = _shape(seed, scale);
 	// Scenery has its own random stream, so it never depends on how the slots were sampled.
 	const rng = seededRng(seed ^ 0x85ebca6b);
 	const centre = { x: plaza.cx, y: plaza.cy };
@@ -144,15 +194,18 @@ export function generateVillage(
 	const bridges = streamArc ? _bridges(village, exits, streamArc) : [];
 	const ridge = _ridge(rng, element, village, exits, streamArc);
 	const exitLines = exits.map((exit) => exit.points);
-	const land = _farmland(rng, region, village, surroundings, exitLines);
+	const land = _farmland(rng, region, village, surroundings, exitLines, dims);
 
 	return {
-		width: VILLAGE_WIDTH,
-		height: VILLAGE_HEIGHT,
+		width: dims.width,
+		height: dims.height,
 		palette: PALETTES[element],
 		boundary: blobPath(village, 1),
 		plaza: blobPath(plaza, 1),
 		centre,
+		// Down and to the left, where the edge has room for a label.
+		wall: blobPoint(village, Math.PI * 0.75, 1),
+		grow: _freeSpot(seededRng(seed ^ 0x2545f491), village, plaza, slots),
 		roads: [
 			...exits.map((exit) => ({ d: openCurve(exit.points), width: 18 })),
 			...roads,
@@ -177,23 +230,23 @@ export function generateVillage(
  * Layout 1's oval, moved to the middle of the wider map, stretched and squared off. The square
  * grows a little with it, by the smaller stretch, so it stays a square and not a field.
  */
-function _shape(seed: number) {
+function _shape(seed: number, scale = 1) {
 	const before = _layout1Shape(seed);
 	const sx = VILLAGE_WIDTH / LAYOUT_1.width;
 	const sy = VILLAGE_HEIGHT / LAYOUT_1.height;
 	const village: Blob = {
 		...before.village,
-		cx: before.village.cx * sx,
-		cy: before.village.cy * sy,
-		rx: before.village.rx * VILLAGE_STRETCH.x,
-		ry: before.village.ry * VILLAGE_STRETCH.y,
+		cx: before.village.cx * sx * scale,
+		cy: before.village.cy * sy * scale,
+		rx: before.village.rx * VILLAGE_STRETCH.x * scale,
+		ry: before.village.ry * VILLAGE_STRETCH.y * scale,
 		squareness: VILLAGE_SQUARENESS,
 	};
 	const grow = Math.min(VILLAGE_STRETCH.x, VILLAGE_STRETCH.y);
 	const plaza: Blob = {
 		...before.plaza,
-		cx: village.cx + (before.plaza.cx - before.village.cx) * VILLAGE_STRETCH.x,
-		cy: village.cy + (before.plaza.cy - before.village.cy) * VILLAGE_STRETCH.y,
+		cx: village.cx + (before.plaza.cx - before.village.cx) * VILLAGE_STRETCH.x * scale,
+		cy: village.cy + (before.plaza.cy - before.village.cy) * VILLAGE_STRETCH.y * scale,
 		rx: before.plaza.rx * grow,
 		ry: before.plaza.ry * grow,
 	};
@@ -427,6 +480,7 @@ function _farmland(
 	village: Blob,
 	surroundings: FarmSurrounding[],
 	exitLines: Point[][],
+	dims: { width: number; height: number },
 ): Farmland {
 	const land: Farmland = { fields: [], ponds: [], pits: [], trees: [], rocks: [], ores: [] };
 	const coniferShare = region.startsWith('north') ? 0.7 : 0.2;
@@ -447,8 +501,8 @@ function _farmland(
 	for (const patch of surroundings) {
 		const out = blobPoint(village, _blobAngle(village, patch.angle), patch.far ? 1.42 : 1.26);
 		const at = {
-			x: Math.max(40, Math.min(VILLAGE_WIDTH - 40, out.x)),
-			y: Math.max(40, Math.min(VILLAGE_HEIGHT - 40, out.y)),
+			x: Math.max(40, Math.min(dims.width - 40, out.x)),
+			y: Math.max(40, Math.min(dims.height - 40, out.y)),
 		};
 		const radius = 55 + 22 * patch.size;
 
@@ -480,8 +534,8 @@ function _farmland(
 	// Forests, plus the odd lone tree on open land.
 	land.trees = poisson(
 		rng,
-		VILLAGE_WIDTH,
-		VILLAGE_HEIGHT,
+		dims.width,
+		dims.height,
 		26,
 		(x, y) =>
 			open(x, y) &&
@@ -496,8 +550,8 @@ function _farmland(
 
 	// A few small stones anywhere, so open land is not bare.
 	for (let i = 0; i < 8; i++) {
-		const x = rng() * VILLAGE_WIDTH;
-		const y = rng() * VILLAGE_HEIGHT;
+		const x = rng() * dims.width;
+		const y = rng() * dims.height;
 
 		if (open(x, y)) {
 			land.rocks.push({ x: round1(x), y: round1(y), r: round1(range(rng, 6, 12)) });

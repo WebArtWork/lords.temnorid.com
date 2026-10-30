@@ -1,3 +1,4 @@
+import { costAtLevel } from '../building/building.cost';
 import { BuildingId, Construction, VillageBuilding } from '../building/building.interface';
 import { levelAt } from '../building/building.timing';
 import { FarmPlot } from '../farm/farm.interface';
@@ -32,8 +33,17 @@ export const PLOT_COST: Partial<Amounts> = { wood: 20, stone: 20, clay: 20, grai
 
 /** Hourly yield of one plot by level, as Travian's resource fields. */
 export const PLOT_PRODUCTION = [2, 5, 9, 15, 22, 33, 50, 70, 100, 145, 200];
-/** Plots go no higher than this. */
-export const PLOT_MAX_LEVEL = PLOT_PRODUCTION.length - 1;
+/** Past the table, each level yields this much more than the one before. Plots never stop growing. */
+export const PLOT_GROWTH = 1.25;
+
+/**
+ * What the next plot of a resource costs, given how many extra ones were bought of it: the first
+ * costs what working a plot up to level 10 does, the second level 20, the third level 30, and so on.
+ * Costly on purpose, so nobody buys many, though anyone can.
+ */
+export function newPlotCost(bought: number): Partial<Amounts> {
+	return costAtLevel(PLOT_COST, 10 * (bought + 1));
+}
 
 /** Which store holds each resource. */
 const STORE: Record<ResourceId, BuildingId> = {
@@ -54,7 +64,10 @@ export function startStock(now: number): StockSave {
 
 /** What one plot yields per hour at a level. */
 export function plotProduction(level: number): number {
-	return PLOT_PRODUCTION[Math.max(0, Math.min(PLOT_MAX_LEVEL, level))]!;
+	const last = PLOT_PRODUCTION.length - 1;
+	const known = PLOT_PRODUCTION[Math.max(0, Math.min(last, level))]!;
+
+	return level > last ? Math.round(known * PLOT_GROWTH ** (level - last)) : known;
 }
 
 /** Hourly yield of the whole farm by `now`, per resource. */

@@ -14,7 +14,6 @@ import {
 } from '../../feature/building/building.timing';
 import {
 	PLOT_COST,
-	PLOT_MAX_LEVEL,
 	plotProduction,
 	shortfall,
 } from '../../feature/economy/economy';
@@ -52,10 +51,9 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 					<span class="font-semibold tabular-nums">{{ view.perHour }}</span>
 					<span translate>за годину</span>
 				</p>
-				</aside>
 
 				<section
-					class="t-card max-w-[36rem]"
+					class="t-card mt-6"
 					aria-labelledby="plot-work"
 					aria-live="polite"
 				>
@@ -81,8 +79,6 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 								running.left
 							}}</span>
 						</p>
-					} @else if (view.level >= maxLevel) {
-						<h2 id="plot-work" class="t-item" translate>Найвищий рівень</h2>
 					} @else {
 						<h2 id="plot-work" class="t-item">
 							<span translate>Покращення до рівня</span> {{ view.level + 1 }}
@@ -152,6 +148,7 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 						}
 					}
 				</section>
+				</aside>
 				</div>
 			} @else if (missing()) {
 				<p class="text-[var(--c-text-muted)]" translate>
@@ -209,7 +206,6 @@ export class PlotComponent {
 	/** Farm plot id, from the route. */
 	readonly id = input.required<string>();
 
-	protected readonly maxLevel = PLOT_MAX_LEVEL;
 	/** The game from GameService, so work started here shows at once. */
 	protected readonly state = computed<GameState | null>(() => this._game.game());
 	protected readonly loaded = signal(false);

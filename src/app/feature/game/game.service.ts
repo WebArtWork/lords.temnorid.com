@@ -2,7 +2,12 @@ import { inject, Service, signal } from '@angular/core';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { costAtLevel } from '../building/building.cost';
 import { demolishBlocker, demolishRefund, demolishSeconds } from '../building/building.demolish';
-import { BuildingId, Construction, VillageBuilding } from '../building/building.interface';
+import {
+	BuildingId,
+	Construction,
+	VillageBuilding,
+	WALL_PLACE,
+} from '../building/building.interface';
 import {
 	buildersBusyUntil,
 	buildSeconds,
@@ -25,8 +30,8 @@ import {
 import {
 	Amounts,
 	capacity,
+	newPlotCost,
 	PLOT_COST,
-	PLOT_MAX_LEVEL,
 	shortfall,
 	spend,
 	startStock,
@@ -36,7 +41,7 @@ import {
 import { ElementId } from '../element/element.interface';
 import { FARM_LAYOUT, generateFarmPlots } from '../farm/farm.generator';
 import { farmLand } from '../farm/farm.land';
-import { FarmSave } from '../farm/farm.interface';
+import { FarmPlot, FarmSave } from '../farm/farm.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { createSeed, Point } from '../map/map-geometry';
 import {
@@ -44,14 +49,18 @@ import {
 	TradeError,
 	marketLevel,
 	npcReceive,
+	nearestCity,
 	Offer,
 	OFFER_MAX_AMOUNT,
-	swap,
+	Shipment,
+	ship,
+	travelSeconds,
 } from '../market/market';
 import { MarketService } from '../market/market.service';
 import { ResourceId } from '../resource/resource.interface';
 import { isOnboarded, LordsProgress, ProgressService } from '../progress/progress.service';
 import { RegionId } from '../region/region.interface';
+import { VillageSlot } from '../village/village.interface';
 import { generateVillageSlots, VILLAGE_LAYOUT } from '../village/village.generator';
 import { WorldService } from '../world/world.service';
 import { VillageSave } from '../village/village.interface';
@@ -67,6 +76,8 @@ export interface GameState {
 	stock: StockSave;
 	hero: HeroSave;
 	faction: FactionId | null;
+	/** Goods on the road to the stores; they are credited when they arrive. */
+	shipments: Shipment[];
 }
 
 /**
@@ -82,6 +93,7 @@ export class GameService {
 	private _cache: GameState | null = null;
 	/** The load in flight, shared so the top bar and a page never found the maps twice. */
 	private _loading: Promise<GameState | null> | null = null;
+	private _shipmentTimer: ReturnType<typeof setTimeout> | undefined;
 
 	/** The last loaded game, for chrome such as the top bar that only shows it. */
 	readonly game = signal<GameState | null>(null);
@@ -134,6 +146,19 @@ export class GameService {
 			await this._progress.setStock(user.uid, stock);
 		}
 
+		// A wall raised on an ordinary place before it had its own moves out to it, once.
+		let village = progress.village ?? maps.village!;
+		const wallAt = Object.entries(village.buildings ?? {}).find(
+			([place, building]) => building.type === 'wall' && place !== String(WALL_PLACE),
+		);
+
+		if (wallAt && !village.buildings?.[WALL_PLACE]) {
+			const { [wallAt[0]]: wall, ...rest } = village.buildings!;
+
+			village = { ...village, buildings: { ...rest, [WALL_PLACE]: wall! } };
+			await this._progress.moveWall(user.uid, wallAt[0], String(WALL_PLACE), wall!);
+		}
+
 		// Every lord has a hero from the start, as in Travian.
 		const hero = progress.hero ?? newHero(Date.now());
 
@@ -146,14 +171,15 @@ export class GameService {
 			lordName: progress.lord!.name!,
 			element,
 			region,
-			village: progress.village ?? maps.village!,
+			village,
 			farm: maps.farm ?? progress.farm!,
 			stock,
 			hero,
 			faction: progress.faction ?? null,
+				shipments: progress.shipments ?? [],
 		};
 
-		this.game.set(this._cache);
+		this._update(this._cache);
 
 		return this._cache;
 	}
@@ -247,10 +273,6 @@ export class GameService {
 			throw new Error('This plot is already being worked.');
 		}
 
-		if (level >= PLOT_MAX_LEVEL) {
-			throw new Error('The plot is at its highest level.');
-		}
-
 		const { construction, stock } = this._startWork(
 			game,
 			now,
@@ -269,6 +291,52 @@ export class GameService {
 			stock,
 			farm: { ...game.farm, levels: { ...game.farm.levels, [plot]: construction } },
 		});
+	}
+
+	/** Buys one more place to build in the village, paid at once. Each one costs more than the last. */
+	async buyVillagePlace(): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const bought = game.village.slots.filter((slot) => slot.extra).length;
+		const cost = newPlotCost(bought);
+		const available = this.stockNow(game, now);
+
+		if (Object.keys(shortfall(available, cost)).length) {
+			throw new Error('Not enough resources.');
+		}
+
+		const stock: StockSave = { amounts: spend(available, cost), at: now };
+		// The spot is drawn from the seed each time the village is shown, so only the id matters here.
+		const slots: VillageSlot[] = [
+			...game.village.slots,
+			{ id: Math.max(0, ...game.village.slots.map((slot) => slot.id)) + 1, x: 0, y: 0, extra: true },
+		];
+
+		await this._progress.setVillageSlots(game.uid, slots, stock);
+		this._update({ ...game, stock, village: { ...game.village, slots } });
+	}
+
+	/** Adds a plot of a resource to the farm, paid at once. Each extra plot of a resource costs more. */
+	async buyPlot(resource: ResourceId, patch = 0): Promise<void> {
+		const game = this._requireGame();
+		const now = Date.now();
+		const bought = game.farm.plots.filter((p) => p.resource === resource && p.extra).length;
+		const cost = newPlotCost(bought);
+		const available = this.stockNow(game, now);
+
+		if (Object.keys(shortfall(available, cost)).length) {
+			throw new Error('Not enough resources.');
+		}
+
+		const stock: StockSave = { amounts: spend(available, cost), at: now };
+		// The spot is drawn from the seed each time the farm is shown, so only the id matters here.
+		const plots: FarmPlot[] = [
+			...game.farm.plots,
+			{ id: Math.max(0, ...game.farm.plots.map((p) => p.id)) + 1, resource, x: 0, y: 0, extra: true, patch },
+		];
+
+		await this._progress.setFarmPlots(game.uid, plots, stock);
+		this._update({ ...game, stock, farm: { ...game.farm, plots } });
 	}
 
 	/** Puts the next level of a building under construction, paid and timed as in Travian. */
@@ -337,6 +405,55 @@ export class GameService {
 	private _update(game: GameState) {
 		this._cache = game;
 		this.game.set(game);
+		this._watchShipments();
+	}
+
+	/** Credits whatever shipments have arrived, and wakes up again for the next one. */
+	private _watchShipments() {
+		clearTimeout(this._shipmentTimer);
+
+		const game = this._cache;
+
+		if (!game?.shipments.length || typeof window === 'undefined') {
+			return;
+		}
+
+		const next = Math.min(...game.shipments.map((shipment) => shipment.arriveAt));
+
+		this._shipmentTimer = setTimeout(
+			() => this.receiveShipments().catch((error) => console.error(error)),
+			Math.max(0, next - Date.now()) + 50,
+		);
+	}
+
+	/** Puts the shipments that have arrived into the stores, even past their capacity. */
+	async receiveShipments(): Promise<void> {
+		const game = this._cache;
+		const now = Date.now();
+		const arrived = game?.shipments.filter((shipment) => shipment.arriveAt <= now) ?? [];
+
+		if (!game || !arrived.length) {
+			this._watchShipments();
+
+			return;
+		}
+
+		const available = this.stockNow(game, now);
+
+		for (const shipment of arrived) {
+			available[shipment.resource] += shipment.amount;
+		}
+
+		const stock: StockSave = { amounts: available, at: now };
+		const shipments = game.shipments.filter((shipment) => shipment.arriveAt > now);
+
+		await this._progress.setShipments(game.uid, stock, shipments);
+		this._update({ ...this._requireGame(), stock, shipments });
+	}
+
+	/** The village's tile on the world map; Kamianets stands in until the farm has learned it. */
+	villageAt(game: GameState): Point {
+		return game.farm.at ?? { x: 0, y: 0 };
 	}
 
 	/** Sends the hero into a dungeon. The loot is rolled now and collected on return. */
@@ -400,7 +517,10 @@ export class GameService {
 		this._update({ ...game, hero, stock });
 	}
 
-	/** Swaps goods with the NPC merchants at once, at the rate the marketplace level earns. */
+	/**
+	 * Sells goods to the NPC merchants of the nearest town, at the rate the marketplace level
+	 * earns. The goods leave now; what they fetch arrives once the merchants are back.
+	 */
 	async exchange(give: ResourceId, giveAmount: number, want: ResourceId): Promise<void> {
 		const game = this._requireGame();
 		const now = Date.now();
@@ -413,10 +533,23 @@ export class GameService {
 			throw new TradeError(reason);
 		}
 
-		const stock: StockSave = { amounts: swap(available, give, giveAmount, want, receive), at: now };
+		const city = nearestCity(this.villageAt(game));
+		const seconds = travelSeconds(this.villageAt(game), city);
+		const stock: StockSave = { amounts: ship(available, give, giveAmount), at: now };
+		const shipments: Shipment[] = [
+			...game.shipments,
+			{
+				id: crypto.randomUUID(),
+				kind: 'npc',
+				source: city.name,
+				resource: want,
+				amount: receive,
+				arriveAt: now + seconds * 1000,
+			},
+		];
 
-		await this._progress.setStock(game.uid, stock);
-		this._update({ ...game, stock });
+		await this._progress.setShipments(game.uid, stock, shipments);
+		this._update({ ...game, stock, shipments });
 	}
 
 	/** Lists an offer on the board; the goods leave the stores until it is bought or cancelled. */
@@ -444,7 +577,15 @@ export class GameService {
 		};
 
 		await this._market.post(
-			{ uid: game.uid, lordName: game.lordName, give, giveAmount, want, wantAmount },
+			{
+				uid: game.uid,
+				lordName: game.lordName,
+				give,
+				giveAmount,
+				want,
+				wantAmount,
+				at: this.villageAt(game),
+			},
 			stock,
 		);
 		this._update({ ...game, stock });
@@ -466,7 +607,9 @@ export class GameService {
 		const now = Date.now();
 		let stock = null as StockSave | null;
 
-		await this._market.accept(game.uid, game.lordName, offer.id, (listed) => {
+		let shipments = game.shipments;
+
+		await this._market.accept(game.uid, game.lordName, this.villageAt(game), offer.id, (listed, seconds) => {
 			const available = this.stockNow(game, now);
 			const reason = cannotTrade(
 				available,
@@ -482,16 +625,24 @@ export class GameService {
 				throw new TradeError(reason);
 			}
 
-			stock = {
-				amounts: swap(available, listed.want, listed.wantAmount, listed.give, listed.giveAmount),
-				at: now,
-			};
+			stock = { amounts: ship(available, listed.want, listed.wantAmount), at: now };
+			shipments = [
+				...game.shipments,
+				{
+					id: crypto.randomUUID(),
+					kind: 'lord',
+					source: listed.lordName,
+					resource: listed.give,
+					amount: listed.giveAmount,
+					arriveAt: now + seconds * 1000,
+				},
+			];
 
-			return stock;
+			return { stock, shipments };
 		});
 
 		if (stock) {
-			this._update({ ...game, stock });
+			this._update({ ...game, stock, shipments });
 		}
 	}
 
@@ -539,6 +690,7 @@ export class GameService {
 	}
 
 	async signOut() {
+		clearTimeout(this._shipmentTimer);
 		this._cache = null;
 		this._loading = null;
 		this.game.set(null);

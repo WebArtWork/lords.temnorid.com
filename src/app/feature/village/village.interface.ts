@@ -6,6 +6,8 @@ export interface VillageSlot {
 	id: number;
 	x: number;
 	y: number;
+	/** Bought later to grow the village. Its spot is drawn, not saved (see villageSlots). */
+	extra?: true;
 }
 
 /**
@@ -59,6 +61,10 @@ export interface VillageMap {
 	boundary: string;
 	plaza: string;
 	centre: Point;
+	/** Where the wall round the village is pressed and labelled, on its edge. */
+	wall: Point;
+	/** A free spot in the village where pressing buys one more place to build. */
+	grow: Point;
 	roads: { d: string; width: number }[];
 	slots: VillageSlot[];
 	/** A stream around part of the village, or none. */

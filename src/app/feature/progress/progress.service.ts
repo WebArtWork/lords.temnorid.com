@@ -1,15 +1,16 @@
 import { inject, Service } from '@angular/core';
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteField, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { ElementId } from '../element/element.interface';
 import { FirebaseService } from '../firebase/firebase.service';
 import { RegionId } from '../region/region.interface';
-import { FarmSave } from '../farm/farm.interface';
+import { FarmPlot, FarmSave } from '../farm/farm.interface';
 import { Construction, VillageBuilding } from '../building/building.interface';
 import { StockSave } from '../economy/economy';
 import { HeroSave } from '../dungeon/hero';
 import { FactionId } from '../faction/faction.data';
 import { LordLook } from '../lord/lord.data';
-import { VillageSave } from '../village/village.interface';
+import { Shipment } from '../market/market';
+import { VillageSave, VillageSlot } from '../village/village.interface';
 
 /** A player's Lords save. */
 export interface LordsProgress {
@@ -30,6 +31,8 @@ export interface LordsProgress {
 	stock?: StockSave;
 	/** The game-made faction the lord stands with, chosen on the profile page. */
 	faction?: FactionId | null;
+	/** Goods bought or ordered that are still on the road; see market.ts. */
+	shipments?: Shipment[];
 	/** The lord's hero, created the first time the game opens. */
 	hero?: HeroSave;
 	/** Generated maps, saved the first time the game opens and never regenerated. */
@@ -99,6 +102,11 @@ export class ProgressService {
 		await this._merge(uid, { stock });
 	}
 
+	/** Saves the stores together with the goods on their way to them. */
+	async setShipments(uid: string, stock: StockSave, shipments: Shipment[]) {
+		await this._merge(uid, { stock, shipments });
+	}
+
 	/** Puts a building on a village place and saves the stores it was paid from. */
 	async setBuilding(uid: string, slot: number, building: VillageBuilding, stock: StockSave) {
 		await setDoc(
@@ -116,6 +124,33 @@ export class ProgressService {
 		await updateDoc(this._ref(uid), {
 			stock,
 			[`village.buildings.${slot}`]: building,
+			updatedAt: serverTimestamp(),
+		});
+	}
+
+	/** Saves the farm's plots, after one was added, and the stores it was paid from. */
+	async setFarmPlots(uid: string, plots: FarmPlot[], stock: StockSave) {
+		await setDoc(
+			this._ref(uid),
+			{ stock, farm: { plots }, updatedAt: serverTimestamp() },
+			{ merge: true },
+		);
+	}
+
+	/** Saves the village's places, after one was bought, and the stores it was paid from. */
+	async setVillageSlots(uid: string, slots: VillageSlot[], stock: StockSave) {
+		await setDoc(
+			this._ref(uid),
+			{ stock, village: { slots }, updatedAt: serverTimestamp() },
+			{ merge: true },
+		);
+	}
+
+	/** Moves a wall that stood on an ordinary place out to the wall's own place. */
+	async moveWall(uid: string, from: string, to: string, wall: VillageBuilding) {
+		await updateDoc(this._ref(uid), {
+			[`village.buildings.${from}`]: deleteField(),
+			[`village.buildings.${to}`]: wall,
 			updatedAt: serverTimestamp(),
 		});
 	}

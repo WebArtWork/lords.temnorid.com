@@ -2,11 +2,12 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
 import { ModalService } from '@wawjs/ngx-ui';
-import { BuildingId, CENTER_PLACE } from '../../feature/building/building.interface';
+import { BuildingId, CENTER_PLACE, WALL_PLACE } from '../../feature/building/building.interface';
 import { nowSignal, standing } from '../../feature/building/building.timing';
 import { farmSurroundings } from '../../feature/farm/farm.generator';
 import { farmLand } from '../../feature/farm/farm.land';
 import { GameService, GameState } from '../../feature/game/game.service';
+import { VillageGrowModalComponent } from '../../feature/village/village-grow-modal.component';
 import { generateVillage, villageSlots } from '../../feature/village/village.generator';
 import { VillageMapComponent } from '../../feature/village/village-map.component';
 import { VillageSlotModalComponent } from '../../feature/village/village-slot-modal.component';
@@ -28,6 +29,7 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 					[buildings]="state.village.buildings ?? {}"
 					[now]="now()"
 					[(selected)]="selected"
+					(extend)="openGrow()"
 				/>
 			</section>
 		} @else {
@@ -91,6 +93,14 @@ export class VillageComponent {
 		});
 	}
 
+	protected openGrow() {
+		this._modal.show({
+			component: VillageGrowModalComponent,
+			size: 'small',
+			ariaLabelledBy: 'village-grow-modal-title',
+		});
+	}
+
 	private _openSlot(slot: number) {
 		const buildings = standing(this.state()?.village.buildings ?? {}, Date.now());
 
@@ -104,6 +114,7 @@ export class VillageComponent {
 			size: 'big',
 			game: this.state(),
 			center: slot === CENTER_PLACE,
+			wall: slot === WALL_PLACE,
 			build: (type: BuildingId) => this._build(slot, type),
 			ariaLabelledBy: 'village-slot-modal-title',
 			// Closing lets go of the place.

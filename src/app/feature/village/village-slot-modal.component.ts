@@ -166,6 +166,8 @@ export class VillageSlotModalComponent {
 	game!: GameState;
 	/** The village centre takes only centre buildings (the arena); other places take the rest. */
 	center = false;
+	/** The wall round the village takes only the wall. */
+	wall = false;
 	build: (type: BuildingId) => Promise<void> = async () => {};
 	close: () => void = () => {};
 
@@ -209,6 +211,7 @@ export class VillageSlotModalComponent {
 				(type) =>
 					type.category === category.id &&
 					!!type.center === this.center &&
+						!!type.wall === this.wall &&
 					(type.repeatable || !present.has(type.id)),
 			).map((type) => {
 				const lacking = shortfall(stock, type.cost);

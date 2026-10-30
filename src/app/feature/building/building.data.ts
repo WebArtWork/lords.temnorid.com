@@ -251,6 +251,7 @@ export const BUILDINGS: BuildingType[] = [
 		icon: 'fort',
 		cost: { wood: 70, stone: 200, clay: 90 },
 		requires: ['lords-hall'],
+		wall: true,
 	},
 ];
 

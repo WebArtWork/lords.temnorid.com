@@ -1,10 +1,13 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateDirective } from '@wawjs/ngx-translate';
+import { ModalService } from '@wawjs/ngx-ui';
+import { FarmGrowModalComponent } from '../../feature/farm/farm-grow-modal.component';
 import { generateFarm } from '../../feature/farm/farm.generator';
 import { farmLand } from '../../feature/farm/farm.land';
 import { FarmMapComponent } from '../../feature/farm/farm-map.component';
 import { nowSignal } from '../../feature/building/building.timing';
+import { ResourceId } from '../../feature/resource/resource.interface';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { GameHeaderComponent } from '../../layouts/game-header/game-header.component';
 
@@ -23,6 +26,7 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 					[levels]="state.farm.levels ?? {}"
 					[now]="now()"
 					[(selected)]="selected"
+					(grow)="openGrow($event)"
 				/>
 			</section>
 		} @else {
@@ -47,6 +51,7 @@ import { GameHeaderComponent } from '../../layouts/game-header/game-header.compo
 export class FarmComponent {
 	private readonly _game = inject(GameService);
 	private readonly _router = inject(Router);
+	private readonly _modal = inject(ModalService);
 
 	/** Follows the game, so work started on another page shows here without a reload. */
 	protected readonly state = computed<GameState | null>(() => this._game.game());
@@ -75,6 +80,16 @@ export class FarmComponent {
 			if (plot !== null) {
 				void this._router.navigate(['/plot', plot]);
 			}
+		});
+	}
+
+	protected openGrow({ resource, patch }: { resource: ResourceId; patch: number }) {
+		this._modal.show({
+			component: FarmGrowModalComponent,
+			size: 'small',
+			only: resource,
+			patch,
+			ariaLabelledBy: 'farm-grow-modal-title',
 		});
 	}
 

@@ -22,7 +22,7 @@ import { REGION_BIAS } from '../region/region.bias';
 import { RegionId } from '../region/region.interface';
 import { RESOURCES } from '../resource/resource.data';
 import { ResourceId } from '../resource/resource.interface';
-import { FarmDecor, FarmMap, FarmPlot, FarmZone } from './farm.interface';
+import { FarmAdd, FarmDecor, FarmMap, FarmPlot, FarmZone } from './farm.interface';
 import { FarmLand } from './farm.land';
 
 /**
@@ -51,6 +51,80 @@ export const FARM_HEIGHT = 1000;
 const RING = { rx: 630, ry: 262 };
 const RING_STEPS = 720;
 export const FARM_PLOT_COUNT = 24;
+
+/** The size of the drawn land. It grows with the plots, so the whole farm always fits the screen. */
+interface Dims {
+	width: number;
+	height: number;
+	/** How much bigger than the usual farm: 1 up to FARM_PLOT_COUNT plots, then with their square root. */
+	scale: number;
+}
+
+function _dims(plots: number): Dims {
+	const scale = Math.max(1, Math.sqrt(plots / FARM_PLOT_COUNT));
+
+	return { width: FARM_WIDTH * scale, height: FARM_HEIGHT * scale, scale };
+}
+
+/** Plots in each patch of each resource. A resource with more than three plots comes as two patches. */
+type PatchCounts = Record<ResourceId, number[]>;
+
+function _total(counts: PatchCounts): number {
+	return Object.values(counts).reduce((sum, sizes) => sum + sizes.reduce((a, n) => a + n, 0), 0);
+}
+
+/** The plots a farm started with, split into patches: one patch up to three plots, else two. */
+function _split(base: number): number[] {
+	if (base <= 0) {
+		return [];
+	}
+
+	return base <= 3 ? [base] : [Math.ceil(base / 2), Math.floor(base / 2)];
+}
+
+/** The patch of every plot: started plots fill the patches in id order, bought ones go where they were bought. */
+function _patchOf(plots: FarmPlot[]): Map<number, number> {
+	const of = new Map<number, number>();
+
+	for (const { id } of RESOURCES) {
+		const own = plots.filter((plot) => plot.resource === id).sort((a, b) => a.id - b.id);
+		const base = own.filter((plot) => !plot.extra);
+		const split = _split(base.length);
+
+		base.forEach((plot, i) => of.set(plot.id, i < (split[0] ?? 0) ? 0 : 1));
+		own
+			.filter((plot) => plot.extra)
+			.forEach((plot) =>
+				of.set(plot.id, Math.min(plot.patch ?? 0, Math.max(0, split.length - 1))),
+			);
+	}
+
+	return of;
+}
+
+function _patchCounts(plots: FarmPlot[]): PatchCounts {
+	const of = _patchOf(plots);
+
+	return Object.fromEntries(
+		RESOURCES.map(({ id }) => {
+			const own = plots.filter((plot) => plot.resource === id);
+			const sizes: number[] = Array.from(
+				{ length: _split(own.filter((plot) => !plot.extra).length).length },
+				() => 0,
+			);
+
+			for (const plot of own) {
+				sizes[of.get(plot.id)!]!++;
+			}
+
+			return [id, sizes];
+		}),
+	) as PatchCounts;
+}
+
+function _startCounts(counts: Record<ResourceId, number>): PatchCounts {
+	return Object.fromEntries(RESOURCES.map(({ id }) => [id, _split(counts[id])])) as PatchCounts;
+}
 export const FARM_MIN_PER_RESOURCE = 2;
 export const FARM_MAX_PER_RESOURCE = 7;
 
@@ -75,27 +149,35 @@ export function generateFarmPlots(
 	region: RegionId,
 	land: FarmLand | null,
 ): FarmPlot[] {
-	return _arrange(seed, _counts(seededRng(seed ^ 0x51ed270b), element, region, land), land, null);
+	return _arrange(
+		seed,
+		_startCounts(_counts(seededRng(seed ^ 0x51ed270b), element, region, land)),
+		land,
+		null,
+	);
 }
 
 /** Draws the farm from the seed: patches facing the land, saved plots placed in them. */
 export function generateFarm(seed: number, plots: FarmPlot[], land: FarmLand | null): FarmMap {
-	const village = _village(seededRng(seed));
-	const counts = farmResourceCounts(plots);
-	const zones = _zones(seed, counts, land);
+	const counts = _patchCounts(plots);
+	const dims = _dims(_total(counts));
+	const village = _village(seededRng(seed), dims);
+	const zones = _zones(seed, counts, land, dims);
 	const rng = seededRng(seed ^ 0x85ebca6b);
+	const placed = _arrange(seed, counts, land, plots);
 	const centre = { x: village.cx, y: village.cy };
 	const zoneCentres = zones.map((zone) => ({ x: zone.blob.cx, y: zone.blob.cy }));
 
 	return {
-		width: FARM_WIDTH,
-		height: FARM_HEIGHT,
+		width: dims.width,
+		height: dims.height,
 		village: { ...centre, path: blobPath(village, 1) },
 		roads: zoneCentres.map((to) => bentLine(rng, centre, to)),
-		zones: zones.map((zone) => _drawZone(rng, zone.resource, zone.blob)),
-		plots: _arrange(seed, counts, land, plots),
-		trees: _scatter(rng, 34, 0.1, village, zones, zoneCentres),
-		rocks: _scatter(rng, 60, 0.05, village, zones, zoneCentres),
+		zones: zones.map((zone) => _drawZone(rng, zone.resource, zone.blob, dims)),
+		plots: placed,
+		adds: _adds(seed, zones, placed),
+		trees: _scatter(rng, 34, 0.1, village, zones, zoneCentres, dims),
+		rocks: _scatter(rng, 60, 0.05, village, zones, zoneCentres, dims),
 	};
 }
 
@@ -119,8 +201,10 @@ export function farmSurroundings(
 	plots: FarmPlot[],
 	land: FarmLand | null,
 ): FarmSurrounding[] {
-	const village = _village(seededRng(seed));
-	const zones = _zones(seed, farmResourceCounts(plots), land);
+	const counts = _patchCounts(plots);
+	const dims = _dims(_total(counts));
+	const village = _village(seededRng(seed), dims);
+	const zones = _zones(seed, counts, land, dims);
 	const distances = zones.map((zone) => Math.hypot(zone.blob.cx - village.cx, zone.blob.cy - village.cy));
 	const middle = distances.reduce((sum, d) => sum + d, 0) / Math.max(1, distances.length);
 
@@ -147,15 +231,17 @@ export function farmResourceCounts(plots: FarmPlot[]): Record<ResourceId, number
 
 interface Zone {
 	resource: ResourceId;
+	/** Which patch of its resource this is. */
+	patch: number;
 	count: number;
 	blob: Blob;
 }
 
-function _village(rng: Rng): Blob {
+function _village(rng: Rng, dims: Dims): Blob {
 	return makeBlob(
 		rng,
-		FARM_WIDTH / 2 + range(rng, -40, 40),
-		FARM_HEIGHT / 2 + range(rng, -25, 25),
+		dims.width / 2 + range(rng, -40, 40),
+		dims.height / 2 + range(rng, -25, 25),
 		110,
 		76,
 		0.12,
@@ -193,7 +279,7 @@ function _ringPosition(direction: number): number {
 }
 
 /** The point on the ring at a position round it, as an offset from the village. */
-function _ringPoint(position: number): Point {
+function _ringPoint(position: number, scale: number): Point {
 	const length = (normaliseAngle(position) / TAU) * RING_LENGTHS[RING_STEPS]!;
 	let low = 0;
 	let high = RING_STEPS;
@@ -211,7 +297,7 @@ function _ringPoint(position: number): Point {
 	const part = (length - RING_LENGTHS[low]!) / (RING_LENGTHS[high]! - RING_LENGTHS[low]! || 1);
 	const t = ((low + part) / RING_STEPS) * TAU;
 
-	return { x: Math.cos(t) * RING.rx, y: Math.sin(t) * RING.ry };
+	return { x: Math.cos(t) * RING.rx * scale, y: Math.sin(t) * RING.ry * scale };
 }
 
 /**
@@ -219,34 +305,26 @@ function _ringPoint(position: number): Point {
  * its resource on the world map where the land shows one way, and lies at random otherwise; the
  * ring is turned so the patches come as close to their directions as the sectors allow.
  */
-function _zones(seed: number, counts: Record<ResourceId, number>, land: FarmLand | null): Zone[] {
+function _zones(
+	seed: number,
+	counts: PatchCounts,
+	land: FarmLand | null,
+	dims: Dims,
+): Zone[] {
 	const rng = seededRng(seed);
-	const village = _village(rng);
+	const village = _village(rng, dims);
 
 	// Big holdings come as two patches, so no single resource takes a whole side of the map.
-	const patches: { resource: ResourceId; count: number; target: number }[] = [];
+	const patches: { resource: ResourceId; patch: number; count: number; target: number }[] = [];
 
 	for (const { id } of RESOURCES) {
-		const count = counts[id];
+		const sizes = counts[id];
 		// Always drawn, so the random stream does not depend on which directions the land gives.
 		const random = rng() * TAU;
 		// Where round the ring the patch would face its land, or a random place.
 		const target = _ringPosition(land?.directions[id] ?? random);
 
-		if (!count) {
-			continue;
-		}
-
-		if (count <= 3) {
-			patches.push({ resource: id, count, target });
-		} else {
-			const first = Math.ceil(count / 2);
-
-			patches.push(
-				{ resource: id, count: first, target },
-				{ resource: id, count: count - first, target },
-			);
-		}
+		sizes.forEach((count, patch) => patches.push({ resource: id, patch, count, target }));
 	}
 
 	// Round the ring in the order of the directions, each patch a stretch as long as its plots.
@@ -273,7 +351,7 @@ function _zones(seed: number, counts: Record<ResourceId, number>, land: FarmLand
 	const turn = Math.atan2(miss.y, miss.x);
 
 	return patches.map((patch, i) => {
-		const onRing = _ringPoint(centres[i]! + turn);
+		const onRing = _ringPoint(centres[i]! + turn, dims.scale);
 		// Alternate near and far from the village so neighbouring patches do not collide.
 		const distance = (i % 2 ? 1.12 : 0.82) + range(rng, -0.05, 0.05);
 		// Big enough to hold its plots at PLOT_SPACING.
@@ -286,11 +364,12 @@ function _zones(seed: number, counts: Record<ResourceId, number>, land: FarmLand
 
 		return {
 			resource: patch.resource,
+			patch: patch.patch,
 			count: patch.count,
 			blob: makeBlob(
 				rng,
-				_clamp(at.x, rx + 12, FARM_WIDTH - rx - 12),
-				_clamp(at.y, ry + 12, FARM_HEIGHT - ry - 12),
+				_clamp(at.x, rx + 12, dims.width - rx - 12),
+				_clamp(at.y, ry + 12, dims.height - ry - 12),
 				rx,
 				ry,
 				0.18,
@@ -301,26 +380,32 @@ function _zones(seed: number, counts: Record<ResourceId, number>, land: FarmLand
 
 /**
  * Plots placed in the patches. New farms get fresh ids in patch order. Saved plots keep their id,
- * resource and level: the k-th spot sampled for a resource goes to its k-th plot by id.
+ * resource and level: the k-th spot sampled in a patch goes to its k-th plot by id.
  */
 function _arrange(
 	seed: number,
-	counts: Record<ResourceId, number>,
+	counts: PatchCounts,
 	land: FarmLand | null,
 	saved: FarmPlot[] | null,
 ): FarmPlot[] {
 	const rng = seededRng(seed ^ 0x9e3779b9);
-	const queues = Object.fromEntries(
-		RESOURCES.map((r) => [
-			r.id,
-			(saved ?? []).filter((plot) => plot.resource === r.id).sort((a, b) => a.id - b.id),
-		]),
-	) as Record<ResourceId, FarmPlot[]>;
+	const dims = _dims(_total(counts));
+	const of = _patchOf(saved ?? []);
+	const queues = new Map<string, FarmPlot[]>();
+
+	for (const plot of [...(saved ?? [])].sort((a, b) => a.id - b.id)) {
+		const key = `${plot.resource}:${of.get(plot.id)}`;
+
+		queues.set(key, [...(queues.get(key) ?? []), plot]);
+	}
+
 	const placed: FarmPlot[] = [];
 
-	for (const zone of _zones(seed, counts, land)) {
-		for (const point of _samplePlots(rng, zone.blob, zone.count, placed)) {
-			const id = saved ? queues[zone.resource].shift()!.id : placed.length + 1;
+	for (const zone of _zones(seed, counts, land, dims)) {
+		for (const point of _samplePlots(rng, zone.blob, zone.count, placed, dims)) {
+			const id = saved
+				? queues.get(`${zone.resource}:${zone.patch}`)!.shift()!.id
+				: placed.length + 1;
 
 			placed.push({ id, resource: zone.resource, ...point });
 		}
@@ -390,12 +475,43 @@ function _counts(
 	return counts;
 }
 
+/**
+ * For every patch, a free spot in it, clear of every plot and of the other spots, where pressing
+ * grows that patch. Taken from the seed, so it stays put until the patch changes.
+ */
+function _adds(seed: number, zones: Zone[], plots: Point[]): FarmAdd[] {
+	const rng = seededRng(seed ^ 0x2f6e1d3b);
+	const adds: FarmAdd[] = [];
+
+	for (const zone of zones) {
+		const taken: Point[] = [...plots, ...adds];
+		let best: Point | null = null;
+		let bestGap = -1;
+
+		for (let attempt = 0; attempt < 400; attempt++) {
+			const candidate = blobPoint(zone.blob, rng() * TAU, range(rng, 0.2, 0.9));
+			const gap = Math.min(...taken.map((other) => pointDistance(other, candidate)));
+
+			if (gap > bestGap) {
+				best = candidate;
+				bestGap = gap;
+			}
+		}
+
+		if (best) {
+			adds.push({ resource: zone.resource, patch: zone.patch, x: round1(best.x), y: round1(best.y) });
+		}
+	}
+
+	return adds;
+}
+
 /** Plots never sit closer than this, even across neighbouring patches. */
 const PLOT_SPACING = 78;
 /** Inside a crowded patch spacing may shrink to this, which still keeps the plot discs apart. */
 const PLOT_SPACING_MIN = 70;
 
-function _samplePlots(rng: Rng, blob: Blob, count: number, placed: Point[]): Point[] {
+function _samplePlots(rng: Rng, blob: Blob, count: number, placed: Point[], dims: Dims): Point[] {
 	let minDistance = PLOT_SPACING;
 	let points: Point[] = [];
 	const clear = (x: number, y: number) =>
@@ -404,8 +520,8 @@ function _samplePlots(rng: Rng, blob: Blob, count: number, placed: Point[]): Poi
 	for (let attempt = 0; attempt < 12 && points.length < count; attempt++) {
 		points = poisson(
 			rng,
-			FARM_WIDTH,
-			FARM_HEIGHT,
+			dims.width,
+			dims.height,
 			minDistance,
 			(x, y) => inBlob(blob, x, y, 0.7) && clear(x, y),
 		);
@@ -438,10 +554,10 @@ function _samplePlots(rng: Rng, blob: Blob, count: number, placed: Point[]): Poi
 
 // ---- Drawing ----
 
-function _drawZone(rng: Rng, resource: ResourceId, blob: Blob): FarmZone {
+function _drawZone(rng: Rng, resource: ResourceId, blob: Blob, dims: Dims): FarmZone {
 	const path = blobPath(blob, 1);
 	const decor = (minDistance: number, scale: number, min: number, max: number): FarmDecor[] =>
-		poisson(rng, FARM_WIDTH, FARM_HEIGHT, minDistance, (x, y) => inBlob(blob, x, y, scale))
+		poisson(rng, dims.width, dims.height, minDistance, (x, y) => inBlob(blob, x, y, scale))
 			.map((p) => ({ x: round1(p.x), y: round1(p.y), r: round1(range(rng, min, max)) }))
 			.sort((a, b) => a.y - b.y);
 
@@ -469,10 +585,11 @@ function _scatter(
 	village: Blob,
 	zones: Zone[],
 	zoneCentres: Point[],
+	dims: Dims,
 ): FarmDecor[] {
 	const centre = { x: village.cx, y: village.cy };
 
-	return poisson(rng, FARM_WIDTH, FARM_HEIGHT, minDistance, (x, y) => {
+	return poisson(rng, dims.width, dims.height, minDistance, (x, y) => {
 		const point = { x, y };
 
 		return (
