@@ -102,6 +102,13 @@ function _patchOf(plots: FarmPlot[]): Map<number, number> {
 	return of;
 }
 
+/** How many plots of a resource stand in one of its patches. */
+export function patchPlotCount(plots: FarmPlot[], resource: ResourceId, patch: number): number {
+	const of = _patchOf(plots);
+
+	return plots.filter((plot) => plot.resource === resource && of.get(plot.id) === patch).length;
+}
+
 function _patchCounts(plots: FarmPlot[]): PatchCounts {
 	const of = _patchOf(plots);
 

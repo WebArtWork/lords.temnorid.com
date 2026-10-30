@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { nowSignal } from '../building/building.timing';
 import { newPlotCost, shortfall, stockAt } from '../economy/economy';
+import { patchPlotCount } from '../farm/farm.generator';
 import { GameService } from '../game/game.service';
 import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 import { ResourceId } from '../resource/resource.interface';
