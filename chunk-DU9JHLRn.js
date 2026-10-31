@@ -1,0 +1,1 @@
+var e=[{id:`stone`,name:`Камінь`,description:`Камінь тримає імена й тепло. Ваша перша локація постане в теплій горі.`,icon:`landscape`,image:`elements/stone.webp`},{id:`fire`,name:`Вогонь`,description:`Вогонь відганяє темряву. Ваша перша локація постане довкола вогнища.`,icon:`local_fire_department`,image:`elements/fire.webp`}];export{e as t};
