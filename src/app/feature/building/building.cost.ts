@@ -1,10 +1,7 @@
 import { ResourceId } from '../resource/resource.interface';
 
-/**
- * Each level costs this much more than the one before. Steep on purpose: a plot (35 of all goods at
- * level 1) costs about 10k in total at level 10 and about 19k at level 11.
- */
-export const COST_GROWTH = 1.88;
+/** Each level costs this much more than the one before. */
+export const COST_GROWTH = 1.6;
 
 /** Every price is this share of its raw figure, to keep costs within what the stores can hold. */
 export const COST_SCALE = 0.5;

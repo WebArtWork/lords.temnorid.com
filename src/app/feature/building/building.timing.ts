@@ -1,5 +1,11 @@
 import { DestroyRef, inject, signal } from '@angular/core';
-import { BuildingId, BuildingType, Construction, VillageBuilding } from './building.interface';
+import {
+	BuildingId,
+	BuildingType,
+	Construction,
+	VillageBuilding,
+	WorkStep,
+} from './building.interface';
 
 /**
  * Construction takes time, as in Travian. Level 1 of the smallest building takes MIN_BUILD_SECONDS;
@@ -26,16 +32,57 @@ export function buildSeconds(
 	return Math.round(Math.max(MIN_BUILD_SECONDS, base * TIME_GROWTH ** (level - 1) * speedup));
 }
 
-/** The level a building has reached by `now`: a finished upgrade counts, a running one does not. */
-export function levelAt(building: Construction, now: number): number {
-	return building.upgrade && building.upgrade.endsAt <= now
-		? building.upgrade.level
-		: building.level;
+/** Every step of the work, in the order it is done. */
+function _steps(building: Construction): WorkStep[] {
+	return [...(building.queue ?? []), ...(building.upgrade ? [building.upgrade] : [])];
 }
 
-/** The upgrade still running at `now`, if any. */
-export function runningUpgrade(building: Construction, now: number) {
-	return building.upgrade && building.upgrade.endsAt > now ? building.upgrade : null;
+/** The level a building has reached by `now`: finished steps count, a running one does not. */
+export function levelAt(building: Construction, now: number): number {
+	return _steps(building).reduce(
+		(level, step) => (step.endsAt <= now ? step.level : level),
+		building.level,
+	);
+}
+
+/** The step being worked on at `now`, if any. */
+export function runningUpgrade(building: Construction, now: number): WorkStep | null {
+	return _steps(building).find((step) => step.endsAt > now) ?? null;
+}
+
+/** When all the work will be done, 0 once it is. */
+export function workEndsAt(building: Construction, now: number): number {
+	const last = _steps(building).at(-1);
+
+	return last && last.endsAt > now ? last.endsAt : 0;
+}
+
+/** The level the work ends at: the running and waiting steps count, so the next one comes after. */
+export function targetLevel(building: Construction, now: number): number {
+	const last = _steps(building).at(-1);
+
+	return last && last.endsAt > now ? last.level : levelAt(building, now);
+}
+
+/**
+ * The work with one more level added. The same builder carries on: the new step starts when the
+ * last one ends, or now if the work is over, and `seconds` is how long it takes.
+ */
+export function raised(building: Construction, seconds: number, now: number): Construction {
+	const waiting = _steps(building).filter((step) => step.endsAt > now);
+	const last = waiting.at(-1);
+	const startedAt = last ? last.endsAt : now;
+
+	return {
+		level: levelAt(building, now),
+		queue: waiting,
+		upgrade: {
+			level: (last?.level ?? levelAt(building, now)) + 1,
+			startedAt,
+			endsAt: startedAt + seconds * 1000,
+			down: false,
+		},
+	};
 }
 
 /** A building whose dismantling is over and nothing is left of it. */
@@ -79,7 +126,7 @@ export function runningWork(
 	plots: Record<string, Construction> = {},
 ): number[] {
 	return [...Object.values(buildings), ...Object.values(plots)]
-		.map((work) => runningUpgrade(work, now)?.endsAt ?? 0)
+		.map((work) => workEndsAt(work, now))
 		.filter((endsAt) => endsAt > now);
 }
 

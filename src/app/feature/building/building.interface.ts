@@ -57,20 +57,26 @@ export const CENTER_PLACE = 0;
 export const WALL_PLACE = -1;
 
 /**
+/** One level of work: it starts when the one before ends, and counts as done once `endsAt` passes. */
+export interface WorkStep {
+	level: number;
+	/** Epoch milliseconds. */
+	startedAt: number;
+	endsAt: number;
+	/** True while a building is being taken down: `level` is then the lower level it ends at. */
+	down?: boolean;
+}
+
+/**
  * Something that is raised level by level over time: a building or a farm plot. `level` is the
- * last finished level; `upgrade` is the latest construction, which counts as done once `endsAt`
- * has passed (see levelAt).
+ * last finished level. The work is a chain of steps done one after another by the same builder:
+ * `queue` holds the ones ahead and `upgrade` is the last, so pressing upgrade again just adds a
+ * step to the end. Each step counts as done once its `endsAt` has passed (see levelAt).
  */
 export interface Construction {
 	level: number;
-	upgrade?: {
-		level: number;
-		/** Epoch milliseconds. */
-		startedAt: number;
-		endsAt: number;
-		/** True while a building is being taken down: `level` is then the lower level it ends at. */
-		down?: boolean;
-	};
+	queue?: WorkStep[];
+	upgrade?: WorkStep;
 }
 
 /**

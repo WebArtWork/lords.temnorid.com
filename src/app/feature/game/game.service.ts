@@ -14,7 +14,9 @@ import {
 	hallLevel,
 	isGone,
 	levelAt,
+	raised,
 	runningUpgrade,
+	targetLevel,
 } from '../building/building.timing';
 import { DUNGEON_BY_ID, DungeonId } from '../dungeon/dungeon.data';
 import { FactionId } from '../faction/faction.data';
@@ -39,7 +41,7 @@ import {
 	stockAt,
 } from '../economy/economy';
 import { ElementId } from '../element/element.interface';
-import { FARM_LAYOUT, generateFarmPlots } from '../farm/farm.generator';
+import { FARM_LAYOUT, generateFarmPlots, patchPlots } from '../farm/farm.generator';
 import { farmLand } from '../farm/farm.land';
 import { FarmPlot, FarmSave } from '../farm/farm.interface';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -206,7 +208,7 @@ export class GameService {
 		await this._construct(slot, { type, level: 0 });
 	}
 
-	/** Starts raising a standing building to its next level. */
+	/** Adds the next level to a standing building's work; a running upgrade just gets longer. */
 	async upgrade(slot: number): Promise<void> {
 		const building = this._cache?.village.buildings?.[slot];
 
@@ -214,11 +216,7 @@ export class GameService {
 			throw new Error('Nothing stands on this place.');
 		}
 
-		if (runningUpgrade(building, Date.now())) {
-			throw new Error('This building is already being raised.');
-		}
-
-		await this._construct(slot, { type: building.type, level: levelAt(building, Date.now()) });
+		await this._construct(slot, building);
 	}
 
 	/**
@@ -251,6 +249,7 @@ export class GameService {
 		const working: VillageBuilding = {
 			type: building.type,
 			level,
+			queue: [],
 			upgrade: { level: to, startedAt: now, endsAt: now + seconds * 1000, down: true },
 		};
 
@@ -262,27 +261,19 @@ export class GameService {
 		});
 	}
 
-	/** Starts working a farm plot up to its next level. */
+	/** Adds the next level to a farm plot's work; a running upgrade just gets longer. */
 	async upgradePlot(plot: number): Promise<void> {
 		const game = this._requireGame();
 		const now = Date.now();
-		const current = game.farm.levels?.[plot];
-		const level = current ? levelAt(current, now) : 0;
-
-		if (current && runningUpgrade(current, now)) {
-			throw new Error('This plot is already being worked.');
-		}
+		const current = game.farm.levels?.[plot] ?? { level: 0 };
+		const hall = hallLevel(game.village.buildings ?? {}, now);
 
 		const { construction, stock } = this._startWork(
 			game,
 			now,
-			level,
-			costAtLevel(PLOT_COST, level + 1),
-			buildSeconds(
-				{ cost: PLOT_COST },
-				level + 1,
-				hallLevel(game.village.buildings ?? {}, now),
-			),
+			current,
+			(level) => costAtLevel(PLOT_COST, level),
+			(level) => buildSeconds({ cost: PLOT_COST }, level, hall),
 		);
 
 		await this._progress.setPlot(game.uid, plot, construction, stock);
@@ -320,8 +311,7 @@ export class GameService {
 	async buyPlot(resource: ResourceId, patch = 0): Promise<void> {
 		const game = this._requireGame();
 		const now = Date.now();
-		const bought = game.farm.plots.filter((p) => p.resource === resource && p.extra).length;
-		const cost = newPlotCost(bought);
+		const cost = newPlotCost(patchPlots(game.farm.plots, resource, patch).length);
 		const available = this.stockNow(game, now);
 
 		if (Object.keys(shortfall(available, cost)).length) {
@@ -344,12 +334,13 @@ export class GameService {
 		const game = this._requireGame();
 		const now = Date.now();
 		const type = BUILDING_BY_ID[from.type];
+		const hall = hallLevel(game.village.buildings ?? {}, now);
 		const { construction, stock } = this._startWork(
 			game,
 			now,
-			from.level,
-			costAtLevel(type.cost, from.level + 1),
-			buildSeconds(type, from.level + 1, hallLevel(game.village.buildings ?? {}, now)),
+			from,
+			(level) => costAtLevel(type.cost, level),
+			(level) => buildSeconds(type, level, hall),
 		);
 		const building: VillageBuilding = { ...construction, type: from.type };
 
@@ -365,32 +356,39 @@ export class GameService {
 	}
 
 	/**
-	 * Checks the builders are free and the stores can pay, then returns the started work and the
-	 * stores after paying. A village has BUILDERS builders, shared by buildings and plots.
+	 * Adds one more level to `current`, paid at once. Work already running carries on with the same
+	 * builder, so the new level only waits its turn; otherwise a builder must be free. A village has
+	 * BUILDERS builders, shared by buildings and plots. Returns the new work and the stores after
+	 * paying.
 	 */
 	private _startWork(
 		game: GameState,
 		now: number,
-		level: number,
-		cost: Partial<Amounts>,
-		seconds: number,
+		current: Construction,
+		cost: (level: number) => Partial<Amounts>,
+		seconds: (level: number) => number,
 	): { construction: Construction; stock: StockSave } {
-		if (buildersBusyUntil(game.village.buildings ?? {}, now, game.farm.levels ?? {})) {
+		const running = runningUpgrade(current, now);
+
+		if (running?.down) {
+			throw new Error('This building is being taken down.');
+		}
+
+		if (!running && buildersBusyUntil(game.village.buildings ?? {}, now, game.farm.levels ?? {})) {
 			throw new Error('The builders are busy.');
 		}
 
+		const level = targetLevel(current, now) + 1;
+		const price = cost(level);
 		const available = this.stockNow(game, now);
 
-		if (Object.keys(shortfall(available, cost)).length) {
+		if (Object.keys(shortfall(available, price)).length) {
 			throw new Error('Not enough resources.');
 		}
 
 		return {
-			construction: {
-				level,
-				upgrade: { level: level + 1, startedAt: now, endsAt: now + seconds * 1000, down: false },
-			},
-			stock: { amounts: spend(available, cost), at: now },
+			construction: raised(current, seconds(level), now),
+			stock: { amounts: spend(available, price), at: now },
 		};
 	}
 

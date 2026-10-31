@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { LanguageService, TranslateDirective, TranslateService } from '@wawjs/ngx-translate';
 import { nowSignal } from '../building/building.timing';
 import { newPlotCost, shortfall, stockAt } from '../economy/economy';
-import { patchPlotCount } from '../farm/farm.generator';
+import { patchPlots } from '../farm/farm.generator';
 import { GameService } from '../game/game.service';
 import { RESOURCE_BY_ID, RESOURCES } from '../resource/resource.data';
 import { ResourceId } from '../resource/resource.interface';
@@ -118,8 +118,9 @@ export class FarmGrowModalComponent {
 		const stock = stockAt(game.stock, game.farm.plots, game.farm.levels ?? {}, buildings, now);
 
 		return RESOURCES.filter((resource) => !this.only || resource.id === this.only).map((resource) => {
-			const own = game.farm.plots.filter((plot) => plot.resource === resource.id);
-			const cost = newPlotCost(own.filter((plot) => plot.extra).length);
+			// A patch grows on its own: its plots and its price count, not the whole resource.
+			const own = patchPlots(game.farm.plots, resource.id, this.patch);
+			const cost = newPlotCost(own.length);
 			const lacking = shortfall(stock, cost);
 
 			return {

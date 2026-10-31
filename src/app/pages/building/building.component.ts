@@ -14,6 +14,8 @@ import {
 	levelAt,
 	nowSignal,
 	runningUpgrade,
+	targetLevel,
+	workEndsAt,
 } from '../../feature/building/building.timing';
 import { GameService, GameState } from '../../feature/game/game.service';
 import { shortfall } from '../../feature/economy/economy';
@@ -83,9 +85,11 @@ import { RESOURCES } from '../../feature/resource/resource.data';
 								running.left
 							}}</span>
 						</p>
-					} @else {
-						<h2 id="building-work" class="t-item">
-							<span translate>Покращення до рівня</span> {{ view.level + 1 }}
+					}
+
+						@if (!view.running?.down) {
+						<h2 [attr.id]="view.running ? null : 'building-work'" class="t-item" [class.mt-6]="!!view.running">
+							<span translate>Покращення до рівня</span> {{ view.nextLevel }}
 						</h2>
 						<ul
 							class="mt-3 flex flex-wrap gap-x-4 gap-y-2"
@@ -338,7 +342,9 @@ export class BuildingComponent {
 		const running = runningUpgrade(building, now);
 		const game = this.state()!;
 		const busyUntil = buildersBusyUntil(buildings, now, game.farm.levels ?? {});
-		const next = costAtLevel(type.cost, level + 1);
+		// Work already running carries on with its builder, so more levels only join the queue.
+		const target = targetLevel(building, now);
+		const next = costAtLevel(type.cost, target + 1);
 		const lacking = shortfall(this._game.stockNow(game, now), next);
 
 		const options: { to: number; label: string }[] = [];
@@ -369,16 +375,17 @@ export class BuildingComponent {
 			type,
 			level,
 			running: running && {
-				level: running.level,
+				level: target,
 				down: !!running.down,
-				left: formatDuration((running.endsAt - now) / 1000),
+				left: formatDuration((workEndsAt(building, now) - now) / 1000),
 				percent: Math.round(
 					((now - running.startedAt) / (running.endsAt - running.startedAt)) * 100,
 				),
 			},
-			busyFor: busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
+			busyFor: !running && busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
 			short: Object.keys(lacking).length > 0,
-			nextTime: formatDuration(buildSeconds(type, level + 1, hallLevel(buildings, now))),
+			nextLevel: target + 1,
+			nextTime: formatDuration(buildSeconds(type, target + 1, hallLevel(buildings, now))),
 			nextCost: RESOURCES.filter((resource) => next[resource.id]).map((resource) => ({
 				id: resource.id,
 				icon: resource.icon,

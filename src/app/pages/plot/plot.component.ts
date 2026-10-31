@@ -11,6 +11,8 @@ import {
 	levelAt,
 	nowSignal,
 	runningUpgrade,
+	targetLevel,
+	workEndsAt,
 } from '../../feature/building/building.timing';
 import {
 	PLOT_COST,
@@ -79,9 +81,11 @@ import { RESOURCE_BY_ID, RESOURCES } from '../../feature/resource/resource.data'
 								running.left
 							}}</span>
 						</p>
-					} @else {
-						<h2 id="plot-work" class="t-item">
-							<span translate>Покращення до рівня</span> {{ view.level + 1 }}
+					}
+
+						@if (view.nextLevel) {
+						<h2 [attr.id]="view.running ? null : 'plot-work'" class="t-item" [class.mt-6]="!!view.running">
+							<span translate>Покращення до рівня</span> {{ view.nextLevel }}
 						</h2>
 						<p class="mt-1 text-sm text-[var(--c-text-muted)]">
 							<span translate>Видобуток</span> {{ view.nextPerHour }}
@@ -238,25 +242,28 @@ export class PlotComponent {
 		const running = runningUpgrade(saved, now);
 		const buildings = game.village.buildings ?? {};
 		const busyUntil = buildersBusyUntil(buildings, now, levels);
-		const next = costAtLevel(PLOT_COST, level + 1);
+		// Work already running carries on with its builder, so more levels only join the queue.
+		const target = targetLevel(saved, now);
+		const next = costAtLevel(PLOT_COST, target + 1);
 		const lacking = shortfall(this._game.stockNow(game, now), next);
 
 		return {
 			resource: RESOURCE_BY_ID[plot.resource],
 			level,
 			perHour: plotProduction(level),
-			nextPerHour: plotProduction(level + 1),
+			nextPerHour: plotProduction(target + 1),
 			running: running && {
-				level: running.level,
-				left: formatDuration((running.endsAt - now) / 1000),
+				level: target,
+				left: formatDuration((workEndsAt(saved, now) - now) / 1000),
 				percent: Math.round(
 					((now - running.startedAt) / (running.endsAt - running.startedAt)) * 100,
 				),
 			},
-			busyFor: busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
+			busyFor: !running && busyUntil ? formatDuration((busyUntil - now) / 1000) : '',
+			nextLevel: target + 1,
 			short: Object.keys(lacking).length > 0,
 			nextTime: formatDuration(
-				buildSeconds({ cost: PLOT_COST }, level + 1, hallLevel(buildings, now)),
+				buildSeconds({ cost: PLOT_COST }, target + 1, hallLevel(buildings, now)),
 			),
 			nextCost: RESOURCES.filter((resource) => next[resource.id]).map((resource) => ({
 				id: resource.id,

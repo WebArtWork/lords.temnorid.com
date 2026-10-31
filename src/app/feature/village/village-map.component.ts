@@ -2,7 +2,7 @@ import { Component, computed, DestroyRef, ElementRef, inject, input, model, outp
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { BUILDING_BY_ID } from '../building/building.data';
 import { CENTER_PLACE, VillageBuilding, WALL_PLACE } from '../building/building.interface';
-import { formatDuration, levelAt, runningUpgrade, standing } from '../building/building.timing';
+import { formatDuration, levelAt, standing, workEndsAt } from '../building/building.timing';
 import { ElementId } from '../element/element.interface';
 import {
 	growth,
@@ -532,9 +532,9 @@ export class VillageMapComponent {
 
 	/** Countdown of a construction still running, or an empty string. */
 	protected timeLeft(building: VillageBuilding): string {
-		const running = runningUpgrade(building, this.now());
+		const endsAt = workEndsAt(building, this.now());
 
-		return running ? formatDuration((running.endsAt - this.now()) / 1000) : '';
+		return endsAt ? formatDuration((endsAt - this.now()) / 1000) : '';
 	}
 
 	protected iconOf(building: VillageBuilding): string {

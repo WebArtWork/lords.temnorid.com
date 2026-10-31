@@ -2,7 +2,7 @@ import { Component, computed, DestroyRef, ElementRef, inject, input, model, outp
 import { RouterLink } from '@angular/router';
 import { LanguageService, TranslateService } from '@wawjs/ngx-translate';
 import { Construction } from '../building/building.interface';
-import { formatDuration, levelAt, runningUpgrade } from '../building/building.timing';
+import { formatDuration, levelAt, workEndsAt } from '../building/building.timing';
 import { Point } from '../map/map-geometry';
 import {
 	growth,
@@ -367,9 +367,9 @@ export class FarmMapComponent {
 	/** Countdown of work still running on a plot, or an empty string. */
 	protected timeLeft(id: number): string {
 		const saved = this.levels()[id];
-		const running = saved && runningUpgrade(saved, this.now());
+		const endsAt = saved ? workEndsAt(saved, this.now()) : 0;
 
-		return running ? formatDuration((running.endsAt - this.now()) / 1000) : '';
+		return endsAt ? formatDuration((endsAt - this.now()) / 1000) : '';
 	}
 
 	protected toggle(id: number) {

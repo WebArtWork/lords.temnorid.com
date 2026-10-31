@@ -25,8 +25,11 @@ export interface StockSave {
 export const START_STOCK = 750;
 /** Each resource holds this much with no store built. */
 export const BASE_CAPACITY = 800;
-/** Each level of a resource's store adds this much room. */
-export const CAPACITY_PER_LEVEL = 400;
+/**
+ * Room grows by this factor with every level of a resource's store (counted over all of that kind),
+ * so a store keeps pace with what plots cost: level 15 holds about 200k, enough for the 5th plot of a patch.
+ */
+export const CAPACITY_GROWTH = 1.45;
 
 /** What level 1 of a farm plot costs; later levels grow as buildings do. Kept cheap to start. */
 export const PLOT_COST: Partial<Amounts> = { wood: 20, stone: 20, clay: 20, grain: 10 };
@@ -37,12 +40,21 @@ export const PLOT_PRODUCTION = [2, 5, 9, 15, 22, 33, 50, 70, 100, 145, 200];
 export const PLOT_GROWTH = 1.25;
 
 /**
- * What the next plot of a resource costs, given how many extra ones were bought of it: the first
- * costs what working a plot up to level 10 does, and each one after it two levels more.
+ * What the next plot of a patch costs, given how many plots it has. A patch starts with two or three,
+ * so the first plot to add is its third or fourth. That one costs all the upgrades of a plot from
+ * level 1 to 10, the next from level 1 to 15, then to 20, and so on: five levels more each time.
  * Costly on purpose, so nobody buys many, though anyone can.
  */
-export function newPlotCost(bought: number): Partial<Amounts> {
-	return costAtLevel(PLOT_COST, 10 + 2 * bought);
+export function newPlotCost(plotsInPatch: number): Partial<Amounts> {
+	const total: Partial<Amounts> = {};
+
+	for (let level = 1; level <= 5 * plotsInPatch; level++) {
+		for (const [id, amount] of Object.entries(costAtLevel(PLOT_COST, level))) {
+			total[id as ResourceId] = (total[id as ResourceId] ?? 0) + amount;
+		}
+	}
+
+	return total;
 }
 
 /** Which store holds each resource. */
@@ -98,7 +110,7 @@ export function capacity(buildings: Record<string, VillageBuilding>, now: number
 	return Object.fromEntries(
 		RESOURCES.map((r) => [
 			r.id,
-			BASE_CAPACITY + CAPACITY_PER_LEVEL * (levels[STORE[r.id]] ?? 0),
+			Math.round((BASE_CAPACITY * CAPACITY_GROWTH ** (levels[STORE[r.id]] ?? 0)) / 100) * 100,
 		]),
 	) as Amounts;
 }
